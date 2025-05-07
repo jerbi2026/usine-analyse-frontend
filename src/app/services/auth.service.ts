@@ -59,7 +59,6 @@ export class AuthService {
     return this.afAuth.authState;
   }
 
-  // Optional: Add Google Sign-in method if you need it
   signInWithGoogle() {
     const provider = new GoogleAuthProvider();
     return this.afAuth.signInWithPopup(provider)

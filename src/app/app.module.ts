@@ -15,6 +15,9 @@ import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { MachineStatusComponent } from './machine-status/machine-status.component';
 import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
+import { NavbarComponent } from './navbar/navbar.component';
+import { SidebarComponent } from './sidebar/sidebar.component';
+import { LayoutComponent } from './layout/layout.component';
 
 @NgModule({
   declarations: [
@@ -25,6 +28,9 @@ import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.co
     DashboardComponent,
     MachineStatusComponent,
     MachineAnalysisComponent,
+    NavbarComponent,
+    SidebarComponent,
+    LayoutComponent,
   ],
   imports: [
     BrowserModule,

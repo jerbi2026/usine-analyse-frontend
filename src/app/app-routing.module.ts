@@ -6,16 +6,23 @@ import { ForgotPasswordComponent } from './forgot-password/forgot-password.compo
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { MachineStatusComponent } from './machine-status/machine-status.component';
 import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
+import { LayoutComponent } from './layout/layout.component';
 
 const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },
   { path: 'auth/signup', component: SignupComponent },
   { path: 'auth/forgot-password', component: ForgotPasswordComponent },
-  { path: 'dashboard', component: DashboardComponent},
-  { path: 'machines', component: MachineStatusComponent},
-  { path: 'analyses', component: MachineAnalysisComponent},
-  {path: '', redirectTo: 'auth/login', pathMatch: 'full' },
-
+  { 
+    path: '', 
+    component: LayoutComponent,
+    children: [
+      { path: 'dashboard', component: DashboardComponent },
+      { path: 'machines', component: MachineStatusComponent },
+      { path: 'analyses', component: MachineAnalysisComponent },
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
+    ]
+  },
+  { path: '**', redirectTo: 'auth/login', pathMatch: 'full' }
 ];
 
 @NgModule({
