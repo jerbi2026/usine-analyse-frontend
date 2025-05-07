@@ -12,6 +12,8 @@ import { SignupComponent } from './signup/signup.component';
 import { ForgotPasswordComponent } from './forgot-password/forgot-password.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
+import { MachineStatusComponent } from './machine-status/machine-status.component';
 
 @NgModule({
   declarations: [
@@ -19,7 +21,8 @@ import { CommonModule } from '@angular/common';
     LoginComponent,
     SignupComponent,
     ForgotPasswordComponent,
-    DashboardComponent
+    DashboardComponent,
+    MachineStatusComponent
   ],
   imports: [
     BrowserModule,
@@ -29,6 +32,8 @@ import { CommonModule } from '@angular/common';
     ReactiveFormsModule,
     AngularFireModule.initializeApp(environment.firebase),
     AngularFireAuthModule,
+    HttpClientModule,
+    
 
   ],
   providers: [],

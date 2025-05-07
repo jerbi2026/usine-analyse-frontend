@@ -1,1 +1,89 @@
-<p>dashboard works!</p>
+<div class="dashboard-container">
+    <header class="dashboard-header">
+      <h1>Dashboard de Monitoring des Machines</h1>
+      <div class="actions">
+        <div class="date-filter">
+          <label>Période:</label>
+          <select [(ngModel)]="selectedDateRange" (change)="onDateRangeChange(selectedDateRange)">
+            <option value="24h">Dernières 24 heures</option>
+            <option value="7d">Derniers 7 jours</option>
+            <option value="30d">Dernier mois</option>
+          </select>
+        </div>
+        <button class="refresh-btn" (click)="refreshData()">
+          <span class="material-icons">refresh</span> Actualiser
+        </button>
+      </div>
+    </header>
+  
+    <div *ngIf="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Chargement des données...</p>
+    </div>
+  
+    <div *ngIf="error" class="error-container">
+      <p>{{ error }}</p>
+      <button (click)="loadData()">Réessayer</button>
+    </div>
+  
+    <main *ngIf="!isLoading && !error" class="dashboard-content">
+      <!-- Section timeseries agrandie -->
+      <section class="chart-container timeseries expanded">
+        <div class="chart-header">
+          <h2>Évolution temporelle</h2>
+          <div class="chart-controls">
+            <button class="toggle-fullscreen" (click)="toggleFullscreen('timeseries')">
+              <span class="material-icons">fullscreen</span>
+            </button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas #timeseriesCanvas></canvas>
+        </div>
+      </section>
+  
+      <div class="secondary-content">
+        <section class="chart-container comparison">
+          <h2>Comparaison des métriques</h2>
+          <div class="chart-wrapper">
+            <canvas #comparisonCanvas></canvas>
+          </div>
+        </section>
+  
+        <aside class="metrics-selection">
+          <h3>Métriques à afficher</h3>
+          <div class="metrics-list">
+            <div *ngFor="let metric of availableMetrics" class="metric-item">
+              <label>
+                <input type="checkbox" 
+                      [checked]="selectedMetrics.includes(metric)" 
+                      (change)="onMetricToggle(metric)">
+                {{ metric }}
+              </label>
+            </div>
+          </div>
+        </aside>
+  
+        <section class="data-summary" *ngIf="machineData.length > 0">
+          <h3>Résumé des dernières données</h3>
+          <div class="summary-content">
+            <p>Dernière mise à jour: {{ machineData[machineData.length-1].Timestamp | date:'medium' }}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Métrique</th>
+                  <th>Valeur</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let metric of selectedMetrics">
+                  <td>{{ metric }}</td>
+                  <td>{{ machineData[machineData.length-1][metric] }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>

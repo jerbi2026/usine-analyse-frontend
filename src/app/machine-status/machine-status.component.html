@@ -1,0 +1,51 @@
+<div class="machine-status-container">
+    <div class="header">
+      <h2>Machine Status Monitor</h2>
+      <button class="refresh-btn" (click)="refresh()">
+        <i class="fas fa-sync"></i> Refresh
+      </button>
+    </div>
+  
+    <div *ngIf="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Loading machine data...</p>
+    </div>
+  
+    <div *ngIf="error" class="error-message">
+      <p>{{ error }}</p>
+      <button (click)="refresh()">Try Again</button>
+    </div>
+  
+    <div *ngIf="!loading && !error && machineStatuses.length === 0" class="no-data">
+      <p>No machine status data available.</p>
+    </div>
+  
+    <div *ngIf="!loading && !error && machineStatuses.length > 0" class="machine-grid">
+      <div *ngFor="let machine of machineStatuses" class="machine-card" [ngClass]="getStatusClass(machine.status)">
+        <div class="machine-header">
+          <h3>{{ machine.machine_name }}</h3>
+          <div class="status-indicator">
+            <span class="status-dot" [ngClass]="getStatusClass(machine.status)"></span>
+            <span class="status-text">{{ machine.status_display }}</span>
+          </div>
+        </div>
+  
+        <div class="machine-details">
+          <p><strong>Last Updated:</strong> {{ machine.last_updated | date:'medium' }}</p>
+          
+          <div class="stop-history" *ngIf="getStopHistoryForMachine(machine.machine_name).length > 0">
+            <h4>Recent Stop History</h4>
+            <div class="stop-info" *ngFor="let stop of getStopHistoryForMachine(machine.machine_name).slice(0, 3)">
+              <p><strong>From:</strong> {{ stop.start_time | date:'medium' }}</p>
+              <p><strong>To:</strong> {{ stop.end_time ? (stop.end_time | date:'medium') : 'Ongoing' }}</p>
+              <p><strong>Duration:</strong> {{ formatDuration(stop) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="timestamp-info" *ngIf="!loading && !error && machineStatuses.length > 0">
+      <p>Last data update: {{ machineStatuses[0].last_updated | date:'medium' }}</p>
+    </div>
+  </div>
