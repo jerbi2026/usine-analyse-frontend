@@ -5,6 +5,7 @@ import { SignupComponent } from './signup/signup.component';
 import { ForgotPasswordComponent } from './forgot-password/forgot-password.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { MachineStatusComponent } from './machine-status/machine-status.component';
+import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
 
 const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },
@@ -12,6 +13,7 @@ const routes: Routes = [
   { path: 'auth/forgot-password', component: ForgotPasswordComponent },
   { path: 'dashboard', component: DashboardComponent},
   { path: 'machines', component: MachineStatusComponent},
+  { path: 'analyses', component: MachineAnalysisComponent},
   {path: '', redirectTo: 'auth/login', pathMatch: 'full' },
 
 ];

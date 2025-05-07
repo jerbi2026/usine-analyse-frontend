@@ -1,4 +1,3 @@
-
 export interface MachineData {
     [key: string]: number | string | any;
     id: number;
@@ -49,7 +48,7 @@ export interface MachineData {
     data?: T;
     error?: string;
   }
-
+  
   export interface MachineStatusResponse {
     machines: {
       [key: string]: string;
@@ -76,4 +75,66 @@ export interface MachineData {
     start_time: string;
     end_time: string | null;
     duration_hours: number;
+  }
+  
+  
+  export interface AnomalyDetectionResult {
+    [machine_name: string]: {
+      anomalies: Array<{
+        timestamp: string;
+        value: number;
+        threshold?: number;
+      }>;
+      model_info?: {
+        type: string;
+        parameters?: any;
+      };
+      stats?: {
+        total: number;
+        by_day?: { [date: string]: number };
+      };
+    } | {
+      summary?: {
+        total_anomalies: number;
+        affected_machines: string[];
+      };
+      period?: {
+        start: string;
+        end: string;
+      };
+    };
+  }
+  
+  export interface HistoricalAnomalyRequest {
+    start_date?: string;
+    end_date?: string;
+    machines?: string[];
+  }
+  
+  export interface HistoricalAnomalyResult {
+    [machine_name: string]: {
+      anomalies: Array<{
+        timestamp: string;
+        value: number;
+        threshold?: number;
+      }>;
+      stats?: {
+        total: number;
+        by_day?: { [date: string]: number };
+      };
+    } | {
+      period?: {
+        start: string;
+        end: string;
+      };
+    };
+  }
+  
+  export interface MachineAnalysisRequest {
+    machine: string;
+    data: Array<{
+      [key: string]: number | string | undefined;
+      timestamp?: string;
+      Timestamp?: string;
+    }>;
   }

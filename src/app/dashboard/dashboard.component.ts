@@ -17,8 +17,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   charts: Chart[] = [];
   isLoading = false;
   error = '';
-  selectedDateRange: string = '24h';
-  selectedMetrics: string[] = ['G19', 'G26', 'MISFAT_3_G10f', 'MISFAT_3_G33_'];
+  selectedDateRange: string = '30d';
+  selectedMetrics: string[] = [];
   availableMetrics: string[] = [
     'G19', 'G26', 'MISFAT_3_D02_01_M43', 'MISFAT_3_D18f', 
     'MISFAT_3_G10f', 'MISFAT_3_G33_', 'MISFAT_3_G39f', 
@@ -53,7 +53,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   setupAutoRefresh(): void {
-    // Rafraîchir les données toutes les 5 minutes
     const refreshInterval = 5 * 60 * 1000; // 5 minutes en millisecondes
     setInterval(() => {
       if (!this.isLoading) {

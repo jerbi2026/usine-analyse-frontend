@@ -14,6 +14,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { MachineStatusComponent } from './machine-status/machine-status.component';
+import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
 
 @NgModule({
   declarations: [
@@ -22,7 +23,8 @@ import { MachineStatusComponent } from './machine-status/machine-status.componen
     SignupComponent,
     ForgotPasswordComponent,
     DashboardComponent,
-    MachineStatusComponent
+    MachineStatusComponent,
+    MachineAnalysisComponent,
   ],
   imports: [
     BrowserModule,

@@ -1,0 +1,138 @@
+<div class="machine-analysis-container">
+    <div class="header">
+      <h1>Machine Analysis Dashboard</h1>
+      <div class="refresh-button" (click)="refreshData()">
+        <i class="icon-refresh"></i> Refresh Data
+      </div>
+    </div>
+  
+    <div class="filters-panel">
+      <div class="filter-group machine-selector">
+        <label for="machineSelect">Machine:</label>
+        <select id="machineSelect" [(ngModel)]="selectedMachine" (change)="onMachineChange()">
+          <option *ngFor="let machine of availableMachines" [value]="machine">{{ machine }}</option>
+        </select>
+      </div>
+  
+      <div class="filter-group date-range">
+        <label>Date Range:</label>
+        <div class="date-buttons">
+          <button [class.active]="selectedDateRange === '24h'" (click)="onDateRangeChange('24h')">24h</button>
+          <button [class.active]="selectedDateRange === '7d'" (click)="onDateRangeChange('7d')">7 days</button>
+          <button [class.active]="selectedDateRange === '30d'" (click)="onDateRangeChange('30d')">30 days</button>
+          <button [class.active]="selectedDateRange === '90d'" (click)="onDateRangeChange('90d')">90 days</button>
+        </div>
+      </div>
+  
+      <div class="filter-group custom-date">
+        <div class="date-input">
+          <label for="startDate">From:</label>
+          <input type="date" id="startDate" [(ngModel)]="startDate" (change)="onDateFilterChange()">
+        </div>
+        <div class="date-input">
+          <label for="endDate">To:</label>
+          <input type="date" id="endDate" [(ngModel)]="endDate" (change)="onDateFilterChange()">
+        </div>
+      </div>
+    </div>
+  
+    <div class="loading-overlay" *ngIf="isLoading">
+      <div class="spinner"></div>
+      <p>Loading data...</p>
+    </div>
+  
+    <div class="error-message" *ngIf="error">
+      <i class="icon-error"></i> {{ error }}
+    </div>
+  
+    <div class="metrics-selector">
+      <h3>Metrics</h3>
+      <div class="metrics-buttons">
+        <button 
+          *ngFor="let metric of availableMetrics" 
+          [class.active]="selectedMetrics.includes(metric)"
+          (click)="onMetricToggle(metric)"
+          [style.borderColor]="chartColors[metric]">
+          {{ metric }}
+        </button>
+      </div>
+    </div>
+  
+    <div class="performance-summary">
+      <div class="summary-card">
+        <h3>Uptime</h3>
+        <div class="value">{{ totalUptime.toFixed(2) }} hrs</div>
+      </div>
+      <div class="summary-card">
+        <h3>Downtime</h3>
+        <div class="value">{{ totalDowntime.toFixed(2) }} hrs</div>
+      </div>
+      <div class="summary-card">
+        <h3>Efficiency</h3>
+        <div class="value">{{ efficiencyRate.toFixed(2) }}%</div>
+      </div>
+      <div class="summary-card">
+        <h3>Anomalies</h3>
+        <div class="value">{{ anomalyCount }}</div>
+      </div>
+    </div>
+  
+    <div class="charts-container">
+      <div class="chart-panel timeseries-chart" [class.fullscreen]="fullscreenElement === 'timeseries-chart'">
+        <div class="chart-header">
+          <h3>Time Series Analysis</h3>
+          <div class="chart-controls">
+            <button class="reset-zoom-button" (click)="charts[0]?.resetZoom()">Reset Zoom</button>
+            <button class="fullscreen-button" (click)="toggleFullscreen('timeseries-chart')">
+              <i class="icon-fullscreen"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas #timeseriesCanvas></canvas>
+        </div>
+      </div>
+  
+      <div class="chart-panel metrics-comparison-chart" [class.fullscreen]="fullscreenElement === 'metrics-comparison-chart'">
+        <div class="chart-header">
+          <h3>Metrics Comparison</h3>
+          <div class="chart-controls">
+            <button class="fullscreen-button" (click)="toggleFullscreen('metrics-comparison-chart')">
+              <i class="icon-fullscreen"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas #metricsComparisonCanvas></canvas>
+        </div>
+      </div>
+  
+      <div class="chart-panel anomaly-chart" [class.fullscreen]="fullscreenElement === 'anomaly-chart'">
+        <div class="chart-header">
+          <h3>Anomaly Analysis</h3>
+          <div class="chart-controls">
+            <button class="fullscreen-button" (click)="toggleFullscreen('anomaly-chart')">
+              <i class="icon-fullscreen"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas #anomalyCanvas></canvas>
+        </div>
+      </div>
+  
+      <div class="chart-panel stops-chart" [class.fullscreen]="fullscreenElement === 'stops-chart'">
+        <div class="chart-header">
+          <h3>Machine Stops</h3>
+          <div class="chart-controls">
+            <button class="fullscreen-button" (click)="toggleFullscreen('stops-chart')">
+              <i class="icon-fullscreen"></i>
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas #stopsCanvas></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
