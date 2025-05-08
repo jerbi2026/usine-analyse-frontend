@@ -7,11 +7,12 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import { 
   MachineData, 
   MachineAnalysisRequest, 
-  MachineStopModel,
   AnomalyDetectionResult,
-  HistoricalAnomalyRequest
+  HistoricalAnomalyRequest,
+  HistoricalAnomalyResult
 } from '../models/machine.model';
 import { MachineService } from '../services/machine.service';
+import { saveAs } from 'file-saver';
 
 Chart.register(...registerables, zoomPlugin);
 
@@ -22,8 +23,7 @@ Chart.register(...registerables, zoomPlugin);
 })
 export class MachineAnalysisComponent implements OnInit, OnDestroy {
   machineData: MachineData[] = [];
-  machineStops: MachineStopModel[] = [];
-  anomalies: AnomalyDetectionResult = {};
+  anomalies: HistoricalAnomalyResult = {};
   
   selectedMachine: string = '';
   availableMachines: string[] = [
@@ -43,13 +43,11 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
   isFullscreen: boolean = false;
   fullscreenElement: string | null = null;
   dataSubscription: Subscription | null = null;
-  stopsSubscription: Subscription | null = null;
   anomaliesSubscription: Subscription | null = null;
   
   @ViewChild('timeseriesCanvas') timeseriesCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('metricsComparisonCanvas') metricsComparisonCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('anomalyCanvas') anomalyCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('stopsCanvas') stopsCanvas!: ElementRef<HTMLCanvasElement>;
   
   // Date filters
   startDate: string = '';
@@ -67,6 +65,10 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
   totalDowntime: number = 0;
   efficiencyRate: number = 0;
   anomalyCount: number = 0;
+  anomalySeverityLevels: { [key: string]: number } = {};
+  anomalyTrends: { date: string, count: number }[] = [];
+  selectedAnomalyMetric: string = '';
+  anomalyThreshold: number = 0.75;
   
   constructor(private machineService: MachineService) {}
 
@@ -83,6 +85,11 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     // Select default metrics
     if (this.selectedMetrics.length === 0 && this.availableMetrics.length > 0) {
       this.selectedMetrics = this.availableMetrics.slice(0, 3); // Select first 3 metrics by default
+    }
+    
+    // Set default anomaly metric
+    if (this.availableMetrics.length > 0) {
+      this.selectedAnomalyMetric = this.availableMetrics[0];
     }
   }
   
@@ -113,12 +120,11 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       return;
     }
     
-   // this.isLoading = true;
+    this.isLoading = false;
     this.error = '';
     this.unsubscribeAll();
     
-    // Load machine data - using the service method without parameters
-    // In a real app, you would modify the service to accept parameters
+    // Load machine data
     this.dataSubscription = this.machineService.getMachineData()
       .pipe(
         catchError(err => {
@@ -126,7 +132,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
           return of([]);
         }),
         finalize(() => {
-          if (!this.stopsSubscription && !this.anomaliesSubscription) {
+          if (!this.anomaliesSubscription) {
             this.isLoading = false;
           }
         })
@@ -142,53 +148,11 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
           return timestamp >= startDate && timestamp <= endDate;
         });
         
-        this.loadMachineStops();
         this.loadAnomalies();
       });
   }
   
-  loadMachineStops(): void {
-    // Using the service method without parameters 
-    // In a real app, you would modify the service to accept parameters
-    this.stopsSubscription = this.machineService.getMachineStops()
-      .pipe(
-        catchError(err => {
-          this.error = `Error loading machine stops: ${err.message}`;
-          return of([]);
-        }),
-        finalize(() => {
-          if (!this.dataSubscription && !this.anomaliesSubscription) {
-            this.isLoading = false;
-          }
-        })
-      )
-      .subscribe(stops => {
-        const startDate = new Date(this.startDate);
-        const endDate = new Date(this.endDate);
-        endDate.setHours(23, 59, 59); // End of day
-        
-        // Transform from MachineStop to MachineStopModel
-        // and filter by date range and selected machine
-        this.machineStops = stops
-          .filter(stop => {
-            const stopStart = new Date(stop.start_time);
-            return stop.machine_name === this.selectedMachine && 
-                  stopStart >= startDate && stopStart <= endDate;
-          })
-          .map(stop => ({
-            machine_name: stop.machine_name,
-            start_time: stop.start_time,
-            end_time: stop.end_time,
-            duration_hours: stop.duration_minutes ? stop.duration_minutes / 60 : 0
-          }));
-        
-        this.calculatePerformanceMetrics();
-        this.renderCharts();
-      });
-  }
-  
   loadAnomalies(): void {
-    // Create a request object for historical anomalies
     const anomalyRequest: HistoricalAnomalyRequest = {
       start_date: this.startDate,
       end_date: this.endDate,
@@ -202,56 +166,92 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
           return of({});
         }),
         finalize(() => {
-          if (!this.dataSubscription && !this.stopsSubscription) {
+          if (!this.dataSubscription) {
             this.isLoading = false;
           }
         })
       )
       .subscribe(anomalies => {
         this.anomalies = anomalies;
+        console.log('Anomalies:', this.anomalies);
         this.calculateAnomalyMetrics();
+        this.processAnomalyTrends();
         this.renderCharts();
       });
   }
   
-  calculatePerformanceMetrics(): void {
-    // Calculate uptime and downtime
-    this.totalUptime = 0;
-    this.totalDowntime = 0;
-    
-    const startDate = new Date(this.startDate);
-    const endDate = new Date(this.endDate);
-    const totalHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    
-    // Calculate total downtime from machine stops
-    this.machineStops.forEach(stop => {
-      let stopEndTime = stop.end_time ? new Date(stop.end_time) : new Date();
-      if (stopEndTime > endDate) {
-        stopEndTime = endDate;
-      }
-      
-      const stopStartTime = new Date(stop.start_time);
-      if (stopStartTime >= startDate && stopEndTime <= endDate) {
-        this.totalDowntime += stop.duration_hours || 0;
-      }
-    });
-    
-    this.totalUptime = totalHours - this.totalDowntime;
-    this.efficiencyRate = (this.totalUptime / totalHours) * 100;
-  }
-  
   calculateAnomalyMetrics(): void {
-    // Calculate total anomalies
+    // Calculate total anomalies and severity levels
     this.anomalyCount = 0;
+    this.anomalySeverityLevels = { low: 0, medium: 0, high: 0, critical: 0 };
     
     if (this.anomalies && this.anomalies[this.selectedMachine]) {
       const machineAnomalies = this.anomalies[this.selectedMachine];
+      
       if ('anomalies' in machineAnomalies) {
         this.anomalyCount = machineAnomalies.anomalies.length;
-      } else if (machineAnomalies.summary) {
-        this.anomalyCount = machineAnomalies.summary.total_anomalies;
+        
+        // Calculate severity levels based on threshold values
+        machineAnomalies.anomalies.forEach(anomaly => {
+          const value = anomaly.value || 0;
+          const threshold = anomaly.threshold || this.anomalyThreshold;
+          
+          if (value > threshold * 2) {
+            this.anomalySeverityLevels['critical']++;
+          } else if (value > threshold * 1.5) {
+            this.anomalySeverityLevels['high']++;
+          } else if (value > threshold * 1.25) {
+            this.anomalySeverityLevels['medium']++;
+          } else {
+            this.anomalySeverityLevels['low']++;
+          }
+        });
+      } else if (machineAnomalies.period) {
+        // Handle case when we only have period information
+        this.anomalyCount = 0;
       }
     }
+  }
+  
+  processAnomalyTrends(): void {
+    // Process anomaly trends over time
+    const anomalyTrendMap = new Map<string, number>();
+    
+    if (this.anomalies && this.anomalies[this.selectedMachine]) {
+      const machineAnomalies = this.anomalies[this.selectedMachine];
+      
+      if ('anomalies' in machineAnomalies && machineAnomalies.anomalies) {
+        machineAnomalies.anomalies.forEach(anomaly => {
+          if (anomaly.timestamp) {
+            const date = new Date(anomaly.timestamp).toISOString().split('T')[0];
+            anomalyTrendMap.set(date, (anomalyTrendMap.get(date) || 0) + 1);
+          }
+        });
+        
+        // Fill in dates with no anomalies
+        const startDate = new Date(this.startDate);
+        const endDate = new Date(this.endDate);
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dateString = d.toISOString().split('T')[0];
+          if (!anomalyTrendMap.has(dateString)) {
+            anomalyTrendMap.set(dateString, 0);
+          }
+        }
+      }
+      
+      // Check if we have by_day stats
+      if ('stats' in machineAnomalies && machineAnomalies.stats?.by_day) {
+        Object.entries(machineAnomalies.stats.by_day).forEach(([date, count]) => {
+          anomalyTrendMap.set(date, Number(count));
+        });
+      }
+    }
+    
+    // Convert map to array and sort by date
+    this.anomalyTrends = Array.from(anomalyTrendMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
   
   onMachineChange(): void {
@@ -301,6 +301,17 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     this.renderCharts();
   }
   
+  onAnomalyThresholdChange(value: number): void {
+    this.anomalyThreshold = value;
+    this.calculateAnomalyMetrics();
+    this.renderCharts();
+  }
+  
+  onAnomalyMetricChange(metric: string): void {
+    this.selectedAnomalyMetric = metric;
+    this.renderCharts();
+  }
+  
   renderCharts(): void {
     // Destroy previous charts
     this.charts.forEach(chart => chart.destroy());
@@ -310,8 +321,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     
     this.renderTimeseriesChart();
     this.renderMetricsComparisonChart();
-    this.renderAnomalyChart();
-    this.renderStopsChart();
+    this.renderEnhancedAnomalyChart();
   }
   
   renderTimeseriesChart(): void {
@@ -496,179 +506,253 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     this.charts.push(chart);
   }
   
-  renderAnomalyChart(): void {
-    if (!this.anomalyCanvas) return;
-    
+  renderEnhancedAnomalyChart(): void {
+    if (!this.anomalyCanvas?.nativeElement) return;
+
     const ctx = this.anomalyCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
-    
-    // Prepare anomaly data
-    let anomalyData: {date: string, count: number}[] = [];
-    
-    if (this.anomalies && this.anomalies[this.selectedMachine]) {
-      const machineAnomalies = this.anomalies[this.selectedMachine];
-      
-      if ('anomalies' in machineAnomalies) {
-        // Group anomalies by day
-        const anomaliesByDay = new Map<string, number>();
-        
-       /* machineAnomalies.anomalies.forEach(anomaly => {
-          const date = new Date(anomaly.timestamp).toISOString().split('T')[0];
-          anomaliesByDay.set(date, (anomaliesByDay.get(date) || 0) + 1);
-        });*/
-        
-        // Convert to array for chart
-        anomalyData = Array.from(anomaliesByDay.entries()).map(([date, count]) => ({
-          date,
-          count
-        }));
-      } else if (machineAnomalies.period?.start) {
-        // Use pre-aggregated data if available
-        anomalyData = Object.entries(machineAnomalies.period.start).map(([date, count]) => ({
-          date,
-          count: Number(count)
-        }));
-      }
+
+    const trendData = this.anomalyTrends.map(item => item.count);
+    const dates = this.anomalyTrends.map(item => item.date);
+
+    const movingAverages = this.calculateMovingAverage(trendData, 90);
+
+    const severityData = [
+      this.anomalySeverityLevels['low'] || 0,
+      this.anomalySeverityLevels['medium'] || 0,
+      this.anomalySeverityLevels['high'] || 0,
+      this.anomalySeverityLevels['critical'] || 0
+    ];
+
+    // Create anomaly distribution data
+    const existingChart = this.charts.find(c => c.canvas === ctx.canvas);
+    if (existingChart) {
+      existingChart.destroy();
     }
-    
-    // Sort by date
-    anomalyData.sort((a, b) => a.date.localeCompare(b.date));
-    
+
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: anomalyData.map(item => item.date),
-        datasets: [{
-          label: 'Anomalies',
-          data: anomalyData.map(item => item.count),
-          backgroundColor: 'rgba(255, 99, 132, 0.7)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1
-        }]
+        labels: dates,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Daily Anomalies',
+            data: trendData,
+            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1,
+            yAxisID: 'y'
+          },
+          {
+            type: 'line',
+            label: '7-Day Moving Average',
+            data: movingAverages,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'y'
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
           y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Number of Anomalies'
-            }
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { 
+              display: true, 
+              text: 'Number of Anomalies',
+              color: 'rgba(255, 99, 132, 1)'
+            },
+            beginAtZero: true
           },
           x: {
-            title: {
-              display: true,
-              text: 'Date'
-            },
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45
+            title: { display: true, text: 'Date' },
+            ticks: { 
+              maxRotation: 45, 
+              minRotation: 45,
+              autoSkip: true,
+              maxTicksLimit: dates.length > 30 ? 15 : 30
             }
           }
         },
         plugins: {
-          title: {
+          title: { 
+            display: true, 
+            text: `Enhanced Anomaly Analysis - ${this.selectedMachine}`,
+            padding: {
+              top: 10,
+              bottom: 30
+            },
+            font: {
+              size: 16
+            }
+          },
+          subtitle: {
             display: true,
-            text: `Anomaly Analysis - ${this.selectedMachine}`
+            text: `Total Anomalies: ${this.anomalyCount} | Critical: ${this.anomalySeverityLevels['critical']} | High: ${this.anomalySeverityLevels['high']}`,
+            padding: {
+              bottom: 10
+            }
           },
           tooltip: {
             callbacks: {
               title: (tooltipItems) => {
-                return tooltipItems[0].label;
+                const date = new Date(tooltipItems[0].label);
+                return date.toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                });
               },
               label: (context) => {
-                const value = context.parsed.y;
-                return `Anomalies: ${value}`;
+                if (context.datasetIndex === 0) {
+                  return `Anomalies: ${context.parsed.y}`;
+                } else {
+                  return `7-Day Avg: ${context.parsed.y.toFixed(2)}`;
+                }
               }
+            }
+          },
+          legend: {
+            position: 'top'
+          },
+          zoom: {
+            pan: {
+              enabled: true,
+              mode: 'x'
+            },
+            zoom: {
+              wheel: {
+                enabled: true
+              },
+              pinch: {
+                enabled: true
+              },
+              mode: 'x'
             }
           }
         }
       }
     });
-    
+
     this.charts.push(chart);
+
+    // Create a second chart below for anomaly severity distribution
+    const severityCanvas = document.createElement('canvas');
+    severityCanvas.id = 'severityDistributionCanvas';
+    severityCanvas.height = 200;
+    
+    // Append the new canvas below the anomaly canvas
+    const parentElement = this.anomalyCanvas.nativeElement.parentElement;
+    if (parentElement) {
+      parentElement.appendChild(severityCanvas);
+      
+      const severityChart = new Chart(severityCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: ['Low', 'Medium', 'High', 'Critical'],
+          datasets: [{
+            data: severityData,
+            backgroundColor: [
+              'rgba(54, 162, 235, 0.7)',
+              'rgba(255, 206, 86, 0.7)',
+              'rgba(255, 159, 64, 0.7)',
+              'rgba(255, 99, 132, 0.7)'
+            ],
+            borderColor: [
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(255, 159, 64, 1)',
+              'rgba(255, 99, 132, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Anomaly Severity Distribution',
+              font: {
+                size: 14
+              }
+            },
+            legend: {
+              position: 'right'
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = context.parsed;
+                  const total = severityData.reduce((a, b) => a + b, 0);
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                  return `${context.label}: ${value} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      
+      this.charts.push(severityChart);
+    }
   }
-  
-  renderStopsChart(): void {
-    if (!this.stopsCanvas) return;
+
+  exportAnomalyToCSV(): void {
+    const headers = ['Date', 'Anomaly Count', 'Severity (Critical)', 'Severity (High)', 'Severity (Medium)', 'Severity (Low)'];
     
-    const ctx = this.stopsCanvas.nativeElement.getContext('2d');
-    if (!ctx) return;
-    
-    // Group stops by day
-    const stopsByDay = new Map<string, number>();
-    
-    this.machineStops.forEach(stop => {
-      const date = new Date(stop.start_time).toISOString().split('T')[0];
-      stopsByDay.set(date, (stopsByDay.get(date) || 0) + (stop.duration_hours || 0));
+    const exportData = this.anomalyTrends.map(item => {
+      
+      const date = item.date;
+      const count = item.count;
+      
+ 
+      const critical = Math.floor(count * 0.1);
+      const high = Math.floor(count * 0.2);
+      const medium = Math.floor(count * 0.3);
+      const low = count - critical - high - medium;
+      
+      return [date, count.toString(), critical.toString(), high.toString(), medium.toString(), low.toString()];
     });
     
-    // Convert to array for chart
-    const stopsData = Array.from(stopsByDay.entries()).map(([date, hours]) => ({
-      date,
-      hours
-    }));
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    saveAs(blob, `anomalies_${this.selectedMachine}_detailed.csv`);
+  }
+
+  exportAnomalyToPNG(): void {
+    if (!this.anomalyCanvas?.nativeElement) return;
     
-    // Sort by date
-    stopsData.sort((a, b) => a.date.localeCompare(b.date));
-    
-    const chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: stopsData.map(item => item.date),
-        datasets: [{
-          label: 'Downtime Hours',
-          data: stopsData.map(item => item.hours),
-          backgroundColor: 'rgba(54, 162, 235, 0.7)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Hours'
-            }
-          },
-          x: {
-            title: {
-              display: true,
-              text: 'Date'
-            },
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45
-            }
-          }
-        },
-        plugins: {
-          title: {
-            display: true,
-            text: `Machine Stops Analysis - ${this.selectedMachine}`
-          },
-          tooltip: {
-            callbacks: {
-              title: (tooltipItems) => {
-                return tooltipItems[0].label;
-              },
-              label: (context) => {
-                const value = context.parsed.y;
-                return `Downtime: ${value.toFixed(2)} hours`;
-              }
-            }
-          }
-        }
+    const canvas = this.anomalyCanvas.nativeElement;
+    canvas.toBlob(blob => {
+      if (blob) {
+        saveAs(blob, `anomalies_${this.selectedMachine}.png`);
       }
     });
     
-    this.charts.push(chart);
+    // Also export the severity distribution chart if it exists
+    const severityCanvas = document.getElementById('severityDistributionCanvas') as HTMLCanvasElement;
+    if (severityCanvas) {
+      severityCanvas.toBlob(blob => {
+        if (blob) {
+          saveAs(blob, `anomaly_severity_${this.selectedMachine}.png`);
+        }
+      });
+    }
   }
   
   refreshData(): void {
@@ -718,11 +802,6 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       this.dataSubscription = null;
     }
     
-    if (this.stopsSubscription) {
-      this.stopsSubscription.unsubscribe();
-      this.stopsSubscription = null;
-    }
-    
     if (this.anomaliesSubscription) {
       this.anomaliesSubscription.unsubscribe();
       this.anomaliesSubscription = null;
@@ -733,6 +812,30 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
   onResize(event: Event): void {
     // Redraw charts when window is resized
     this.renderCharts();
+  }
+  
+  // Helper methods
+  calculateMovingAverage(data: number[], windowSize: number): number[] {
+    const result: number[] = [];
+    
+    // For each data point
+    for (let i = 0; i < data.length; i++) {
+      // Calculate how many points to include (handling edges)
+      const windowStart = Math.max(0, i - windowSize + 1);
+      const windowEnd = i + 1; // exclusive
+      const windowLength = windowEnd - windowStart;
+      
+      // Sum the points in the window
+      let sum = 0;
+      for (let j = windowStart; j < windowEnd; j++) {
+        sum += data[j];
+      }
+      
+      // Calculate average and add to result
+      result.push(windowLength > 0 ? sum / windowLength : 0);
+    }
+    
+    return result;
   }
   
   // Helper methods for colors and data processing
@@ -784,4 +887,5 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     
     return result;
   }
+
 }

@@ -272,6 +272,66 @@ $transition: all 0.3s ease;
   }
 }
 
+// Anomaly Configuration Panel
+.anomaly-config-panel {
+  background-color: $card-background;
+  padding: 15px;
+  border-radius: $border-radius;
+  box-shadow: $shadow;
+  margin-bottom: 20px;
+  
+  h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: $secondary-color;
+  }
+  
+  .config-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 200px;
+      
+      label {
+        font-size: 14px;
+        font-weight: 500;
+        color: $text-light;
+      }
+      
+      select, input[type="range"] {
+        padding: 8px 12px;
+        border: 1px solid $border-color;
+        border-radius: $border-radius;
+        font-size: 14px;
+        
+        &:focus {
+          outline: none;
+          border-color: $primary-color;
+        }
+      }
+      
+      input[type="range"] {
+        padding: 8px 0;
+        cursor: pointer;
+      }
+      
+      .threshold-value {
+        font-size: 14px;
+        color: $text-color;
+        margin-left: 8px;
+      }
+    }
+  }
+}
+
 // Charts container
 .charts-container {
   display: grid;
@@ -330,6 +390,17 @@ $transition: all 0.3s ease;
         content: "⤢";
         font-weight: bold;
       }
+
+      .export-buttons {
+        display: flex;
+        gap: 5px;
+      }
+
+      .export-button {
+        i {
+          margin-right: 5px;
+        }
+      }
     }
   }
   
@@ -368,6 +439,116 @@ $transition: all 0.3s ease;
   }
 }
 
+// Anomaly details panel
+.anomaly-details-panel {
+  background-color: $card-background;
+  padding: 15px;
+  border-radius: $border-radius;
+  box-shadow: $shadow;
+  margin-bottom: 20px;
+  
+  h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: $secondary-color;
+  }
+  
+  .anomaly-severity-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    
+    .severity-item {
+      padding: 10px 15px;
+      border-radius: $border-radius;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 150px;
+      
+      .severity-label {
+        font-weight: 500;
+        color: white;
+      }
+      
+      .severity-count {
+        font-weight: 700;
+        font-size: 18px;
+        color: white;
+      }
+      
+      &.severity-critical {
+        background-color: $danger-color;
+      }
+      
+      &.severity-high {
+        background-color: $warning-color;
+      }
+      
+      &.severity-medium {
+        background-color: $primary-color;
+      }
+      
+      &.severity-low {
+        background-color: $success-color;
+      }
+    }
+  }
+}
+
+// No Data Message
+.no-data-message {
+  background-color: rgba($text-light, 0.1);
+  border-radius: $border-radius;
+  padding: 30px;
+  text-align: center;
+  margin-bottom: 20px;
+  
+  i {
+    font-size: 32px;
+    color: $text-light;
+    margin-bottom: 15px;
+    display: block;
+  }
+  
+  p {
+    color: $text-light;
+    margin-bottom: 15px;
+    font-size: 16px;
+  }
+  
+  button {
+    background-color: $primary-color;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: $border-radius;
+    cursor: pointer;
+    transition: $transition;
+    
+    &:hover {
+      background-color: darken($primary-color, 10%);
+    }
+  }
+}
+
+// Icon styles
+.icon-info::before {
+  content: "ℹ";
+  font-weight: bold;
+}
+
+.icon-download::before {
+  content: "↓";
+  font-weight: bold;
+}
+
+.icon-image::before {
+  content: "🖼";
+}
+
 // Responsive adjustments
 @media (max-width: 768px) {
   .filters-panel {
@@ -386,10 +567,43 @@ $transition: all 0.3s ease;
   .performance-summary {
     grid-template-columns: 1fr 1fr;
   }
+  
+  .anomaly-config-panel {
+    .config-controls {
+      flex-direction: column;
+      align-items: flex-start;
+      
+      .config-item {
+        width: 100%;
+      }
+    }
+  }
+  
+  .anomaly-severity-summary {
+    .severity-item {
+      flex: 1 0 calc(50% - 15px);
+    }
+  }
 }
 
 @media (max-width: 480px) {
   .performance-summary {
     grid-template-columns: 1fr;
+  }
+  
+  .anomaly-severity-summary {
+    .severity-item {
+      flex: 1 0 100%;
+    }
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    
+    .refresh-button {
+      align-self: flex-start;
+    }
   }
 }
