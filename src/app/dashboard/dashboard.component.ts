@@ -20,29 +20,58 @@ export class DashboardComponent implements OnInit, OnDestroy {
   selectedDateRange: string = '30d';
   selectedMetrics: string[] = [];
   availableMetrics: string[] = [
-    'G19', 'G26', 'MISFAT_3_D02_01_M43', 'MISFAT_3_D18f', 
-    'MISFAT_3_G10f', 'MISFAT_3_G33_', 'MISFAT_3_G39f', 
-    'MISFAT_3_H46f', 'MISFAT_3_H53', 'MISFAT_3_N11'
+     'G19', 'G26', 'MISFAT_3_Compresseur_3', 'MISFAT_3_G39f', 
+    'MISFAT_3_D18f', 'MISFAT_3_G10f', 'MISFAT_3_TGBT_N3f'
   ];
   isFullscreen: boolean = false;
   fullscreenElement: string | null = null;
   dataSubscription: Subscription | null = null;
   chartColors: {[key: string]: string} = {};
   
+  // Nouvelles propriétés pour les graphiques supplémentaires
+  selectedMetricForHeatmap: string = '';
+  selectedMetricForDistribution: string = '';
+  
+  // Nouvelles méthodes pour le résumé des données
+  calculateMin(metric: string): number {
+    if (!this.machineData.length) return 0;
+    return Math.min(...this.machineData.map(item => item[metric as keyof MachineData] as number));
+  }
+  
+  calculateMax(metric: string): number {
+    if (!this.machineData.length) return 0;
+    return Math.max(...this.machineData.map(item => item[metric as keyof MachineData] as number));
+  }
+  
+  calculateAvg(metric: string): number {
+    if (!this.machineData.length) return 0;
+    const values = this.machineData.map(item => item[metric as keyof MachineData] as number);
+    const sum = values.reduce((acc, val) => acc + val, 0);
+    return sum / values.length;
+  }
+  
   @ViewChild('timeseriesCanvas') timeseriesCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('comparisonCanvas') comparisonCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('monthlyMedianCanvas') monthlyMedianCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('distributionCanvas') distributionCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('heatmapCanvas') heatmapCanvas!: ElementRef<HTMLCanvasElement>;
   
   constructor(private machineService: MachineService) {}
 
   ngOnInit(): void {
-    // Pré-générer des couleurs cohérentes pour chaque métrique
     this.availableMetrics.forEach(metric => {
       this.chartColors[metric] = this.getUniqueColor(metric);
     });
     
+    // Sélectionner quelques métriques par défaut pour commencer
+    if (this.availableMetrics.length > 0) {
+      this.selectedMetrics = [];
+      this.selectedMetricForHeatmap = this.availableMetrics[0];
+      this.selectedMetricForDistribution = this.availableMetrics[0];
+    }
+    
     this.loadData();
     
-    // Mettre en place un rafraîchissement périodique (toutes les 5 minutes)
     this.setupAutoRefresh();
   }
   
@@ -53,7 +82,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   setupAutoRefresh(): void {
-    const refreshInterval = 5 * 60 * 1000; // 5 minutes en millisecondes
+    const refreshInterval = 5 * 60 * 1000;
     setInterval(() => {
       if (!this.isLoading) {
         this.loadData();
@@ -69,6 +98,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.dataSubscription.unsubscribe();
     }
     
+    // Utiliser le service pour charger les données
     this.dataSubscription = this.machineService.getMachineData()
       .pipe(
         catchError(err => {
@@ -99,6 +129,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case '30d':
         cutoffDate.setDate(now.getDate() - 30);
         break;
+      case '90d':
+        cutoffDate.setDate(now.getDate() - 90);
+        break;
+      case '1y':
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
       default:
         cutoffDate.setHours(now.getHours() - 24);
     }
@@ -107,7 +143,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   renderCharts(): void {
-    // Destroy previous charts
     this.charts.forEach(chart => chart.destroy());
     this.charts = [];
     
@@ -115,6 +150,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     this.renderTimeseriesChart();
     this.renderComparisonChart();
+    this.renderMonthlyMedianChart();
+    this.renderDistributionChart();
+    this.renderHeatmapChart();
   }
 
   renderTimeseriesChart(): void {
@@ -307,6 +345,337 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     this.charts.push(chart);
   }
+  
+  // NOUVEAU GRAPHIQUE: Graphique des médianes mensuelles
+  renderMonthlyMedianChart(): void {
+    if (!this.monthlyMedianCanvas) return;
+    
+    const ctx = this.monthlyMedianCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    // Calculer les médianes mensuelles
+    const monthlyData = this.calculateMonthlyMedians();
+    
+    const months = Object.keys(monthlyData);
+    
+    const datasets = this.selectedMetrics.map(metric => {
+      const color = this.chartColors[metric] || this.getUniqueColor(metric);
+      const data = months.map(month => monthlyData[month][metric] || 0);
+      
+      return {
+        label: metric,
+        data: data,
+        backgroundColor: this.hexToRgba(color, 0.7),
+        borderColor: color,
+        borderWidth: 1
+      };
+    });
+    
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Mois'
+            },
+            stacked: false
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Médiane'
+            },
+            beginAtZero: false,
+            stacked: false
+          }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: 'Médianes mensuelles des métriques'
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          },
+          legend: {
+            position: 'top'
+          }
+        }
+      }
+    });
+    
+    this.charts.push(chart);
+  }
+  
+  // NOUVEAU GRAPHIQUE: Distribution des valeurs pour une métrique
+  renderDistributionChart(): void {
+    if (!this.distributionCanvas || !this.selectedMetricForDistribution) return;
+    
+    const ctx = this.distributionCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    // Récupérer les données pour la métrique sélectionnée
+    const metricData = this.machineData.map(item => 
+      item[this.selectedMetricForDistribution as keyof MachineData] as number
+    );
+    
+    // Calculer les plages pour l'histogramme
+    const min = Math.min(...metricData);
+    const max = Math.max(...metricData);
+    const range = max - min;
+    const binCount = 10; // Nombre de plages
+    const binSize = range / binCount;
+    
+    const bins = Array(binCount).fill(0);
+    const binLabels = Array(binCount).fill('');
+    
+    // Remplir les plages
+    metricData.forEach(value => {
+      const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1);
+      bins[binIndex]++;
+    });
+    
+    // Créer les étiquettes des plages
+    for (let i = 0; i < binCount; i++) {
+      const lowerBound = min + (i * binSize);
+      const upperBound = min + ((i + 1) * binSize);
+      binLabels[i] = `${lowerBound.toFixed(1)} - ${upperBound.toFixed(1)}`;
+    }
+    
+    const color = this.chartColors[this.selectedMetricForDistribution];
+    
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: binLabels,
+        datasets: [{
+          label: `Distribution de ${this.selectedMetricForDistribution}`,
+          data: bins,
+          backgroundColor: this.hexToRgba(color, 0.7),
+          borderColor: color,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Plages de valeurs'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Fréquence'
+            },
+            beginAtZero: true
+          }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: `Distribution des valeurs pour ${this.selectedMetricForDistribution}`
+          },
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+    
+    this.charts.push(chart);
+  }
+  
+  // NOUVEAU GRAPHIQUE: Carte de chaleur (heatmap) des valeurs par heure et jour
+  renderHeatmapChart(): void {
+    if (!this.heatmapCanvas || !this.selectedMetricForHeatmap) return;
+    
+    const ctx = this.heatmapCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    // Structurer les données pour la carte de chaleur
+    const heatmapData = this.prepareHeatmapData(this.selectedMetricForHeatmap);
+    
+    // Jours de la semaine
+    const daysOfWeek = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    
+    // Heures de la journée
+    const hoursOfDay = Array.from({length: 24}, (_, i) => `${i}h`);
+    
+    // Trouver la valeur maximale pour normaliser les couleurs
+    const maxValue = Math.max(...heatmapData.flat().filter(val => val !== undefined && val !== null), 1);
+    
+    // Fonction pour générer une couleur basée sur la valeur
+    const getColorForValue = (value: number) => {
+        const ratio = value / maxValue;
+        // Gradient de bleu clair à bleu foncé
+        const r = Math.round(200 * (1 - ratio));
+        const g = Math.round(200 * (1 - ratio));
+        const b = Math.round(255);
+        return `rgba(${r}, ${g}, ${b}, ${0.7 + ratio * 0.3})`; // Opacité variable
+    };
+    
+    // Créer un dataset pour chaque jour avec des couleurs dynamiques
+    const datasets = daysOfWeek.map((day, index) => {
+        const data = heatmapData[index] || Array(24).fill(0);
+        return {
+            label: day,
+            data: data,
+            backgroundColor: data.map(value => getColorForValue(value)), // Couleur par valeur
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+            borderWidth: 1,
+            fill: false
+        };
+    });
+    
+    // Créer un graphique personnalisé pour simuler une carte de chaleur
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: { 
+            labels: hoursOfDay,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Heure de la journée'
+                    }
+                },
+                y: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Jour de la semaine'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Carte de chaleur de ${this.selectedMetricForHeatmap} par jour et heure`
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const value = context.parsed.x;
+                            const dayIndex = context.datasetIndex;
+                            const hourIndex = context.dataIndex;
+                            const actualValue = heatmapData[dayIndex]?.[hourIndex] || 0;
+                            return `${daysOfWeek[dayIndex]} à ${hoursOfDay[hourIndex]}: ${actualValue.toFixed(2)}`;
+                        }
+                    }
+                },
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+    
+    chart.update();
+    
+    this.charts.push(chart);
+}
+  
+  // Fonction pour calculer les médianes mensuelles
+  calculateMonthlyMedians(): { [month: string]: { [metric: string]: number } } {
+    const monthlyGroups: { [month: string]: { [metric: string]: number[] } } = {};
+    
+    // Regrouper les données par mois
+    this.machineData.forEach(item => {
+      const date = new Date(item.Timestamp);
+      const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+      
+      if (!monthlyGroups[monthKey]) {
+        monthlyGroups[monthKey] = {};
+      }
+      
+      this.selectedMetrics.forEach(metric => {
+        if (!monthlyGroups[monthKey][metric]) {
+          monthlyGroups[monthKey][metric] = [];
+        }
+        
+        const value = item[metric as keyof MachineData] as number;
+        monthlyGroups[monthKey][metric].push(value);
+      });
+    });
+    
+    // Calculer la médiane pour chaque mois et métrique
+    const monthlyMedians: { [month: string]: { [metric: string]: number } } = {};
+    
+    Object.keys(monthlyGroups).forEach(month => {
+      monthlyMedians[month] = {};
+      
+      this.selectedMetrics.forEach(metric => {
+        const values = monthlyGroups[month][metric];
+        monthlyMedians[month][metric] = this.calculateMedian(values);
+      });
+    });
+    
+    return monthlyMedians;
+  }
+  
+  // Fonction pour calculer la médiane d'un tableau de nombres
+  calculateMedian(values: number[]): number {
+    if (!values.length) return 0;
+    
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    
+    if (sorted.length % 2 === 0) {
+      return (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+    
+    return sorted[middle];
+  }
+  
+  // Préparer les données pour la carte de chaleur
+  prepareHeatmapData(metric: string): number[][] {
+    // Initialiser un tableau 7x24 (7 jours, 24 heures) avec des zéros
+    const heatmapData: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
+    const countsData: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
+    
+    // Remplir avec les données
+    this.machineData.forEach(item => {
+      const date = new Date(item.Timestamp);
+      const dayIndex = date.getDay(); // 0-6, 0 étant dimanche
+      const hourIndex = date.getHours(); // 0-23
+      
+      const value = item[metric as keyof MachineData] as number;
+      
+      heatmapData[dayIndex][hourIndex] += value;
+      countsData[dayIndex][hourIndex]++;
+    });
+    
+    // Calculer les moyennes
+    for (let day = 0; day < 7; day++) {
+      for (let hour = 0; hour < 24; hour++) {
+        if (countsData[day][hour] > 0) {
+          heatmapData[day][hour] /= countsData[day][hour];
+        }
+      }
+    }
+    
+    return heatmapData;
+  }
 
   onDateRangeChange(range: string): void {
     this.selectedDateRange = range;
@@ -319,6 +688,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.selectedMetrics.splice(index, 1);
     } else {
       this.selectedMetrics.push(metric);
+    }
+    this.renderCharts();
+  }
+  
+  onMetricSelect(metricType: string, metric: string): void {
+    if (metricType === 'heatmap') {
+      this.selectedMetricForHeatmap = metric;
+    } else if (metricType === 'distribution') {
+      this.selectedMetricForDistribution = metric;
     }
     this.renderCharts();
   }
@@ -377,6 +755,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refreshData(): void {
     this.loadData();
+  }
+
+  exportAllCharts(): void {
+    // Exporter tous les graphiques sous forme d'images PNG
+    this.charts.forEach((chart, index) => {
+      const chartName = ['timeseries', 'comparison', 'monthly-median', 'distribution', 'heatmap'][index] || `chart-${index}`;
+      const url = chart.toBase64Image();
+      
+      // Créer un lien temporaire pour le téléchargement
+      const link = document.createElement('a');
+      link.download = `${chartName}-${new Date().toISOString()}.png`;
+      link.href = url;
+      link.click();
+    });
   }
 
   toggleFullscreen(element: string): void {

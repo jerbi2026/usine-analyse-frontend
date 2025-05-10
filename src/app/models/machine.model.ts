@@ -102,3 +102,8 @@ export interface MachineAnalysisResult {
   results: MachineAnomalyResult;
   summary: AnomalySummary;
 }
+
+export interface MonitoringStatus {
+  status: 'active' | 'inactive';
+  message: string;
+}

@@ -14,7 +14,8 @@ import {
   HistoricalAnomalyRequest,
   HistoricalAnomalyResult,
   MachineAnalysisRequest,
-  MachineAnalysisResult
+  MachineAnalysisResult,
+  MonitoringStatus
 } from '../models/machine.model';
 
 @Injectable({
@@ -94,5 +95,15 @@ export class MachineService {
 
   analyzeMachine(request: MachineAnalysisRequest): Observable<MachineAnalysisResult> {
     return this.http.post<MachineAnalysisResult>(`${this.apiUrl}/analyze-machine`, request);
+  }
+
+
+  stopMonitoring(): Observable<ApiResponse<null>> {
+    return this.http.post<ApiResponse<null>>(`${this.apiUrl}/stop-monitoring`, {});
+  }
+
+
+  getMonitoringStatus(): Observable<MonitoringStatus> {
+    return this.http.get<MonitoringStatus>(`${this.apiUrl}/monitoring-status`);
   }
 }

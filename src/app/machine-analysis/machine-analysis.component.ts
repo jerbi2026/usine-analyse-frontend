@@ -9,7 +9,9 @@ import {
   MachineAnalysisRequest, 
   AnomalyDetectionResult,
   HistoricalAnomalyRequest,
-  HistoricalAnomalyResult
+  HistoricalAnomalyResult,
+  MachineAnomalyResult,
+  AnomalySummary
 } from '../models/machine.model';
 import { MachineService } from '../services/machine.service';
 import { saveAs } from 'file-saver';
@@ -23,13 +25,12 @@ Chart.register(...registerables, zoomPlugin);
 })
 export class MachineAnalysisComponent implements OnInit, OnDestroy {
   machineData: MachineData[] = [];
-  anomalies: HistoricalAnomalyResult = {};
+  anomalies: HistoricalAnomalyResult = { summary: { anomalies_found: false, machines_count: 0, machines_processed: 0, timestamp: '' } };
   
   selectedMachine: string = '';
   availableMachines: string[] = [
-    'G19', 'G26', 'MISFAT_3_D02_01_M43', 'MISFAT_3_D18f', 
-    'MISFAT_3_G10f', 'MISFAT_3_G33_', 'MISFAT_3_G39f', 
-    'MISFAT_3_H46f', 'MISFAT_3_H53', 'MISFAT_3_N11'
+     'G19', 'G26', 'MISFAT_3_Compresseur_3', 'MISFAT_3_G39f', 
+    'MISFAT_3_D18f', 'MISFAT_3_G10f', 'MISFAT_3_TGBT_N3f'
   ];
   selectedDateRange: string = '30d';
   selectedMetrics: string[] = [];
@@ -120,7 +121,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       return;
     }
     
-    this.isLoading = false;
+    this.isLoading = true;
     this.error = '';
     this.unsubscribeAll();
     
@@ -138,7 +139,6 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
         })
       )
       .subscribe(data => {
-        // Filter data for selected machine and date range
         const startDate = new Date(this.startDate);
         const endDate = new Date(this.endDate);
         endDate.setHours(23, 59, 59); // End of day
@@ -163,12 +163,10 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       .pipe(
         catchError(err => {
           this.error = `Error loading anomalies: ${err.message}`;
-          return of({});
+          return of({ summary: { anomalies_found: false, machines_count: 0, machines_processed: 0, timestamp: '' } });
         }),
         finalize(() => {
-          if (!this.dataSubscription) {
-            this.isLoading = false;
-          }
+          this.isLoading = false;
         })
       )
       .subscribe(anomalies => {
@@ -181,34 +179,29 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
   }
   
   calculateAnomalyMetrics(): void {
-    // Calculate total anomalies and severity levels
     this.anomalyCount = 0;
     this.anomalySeverityLevels = { low: 0, medium: 0, high: 0, critical: 0 };
     
-    if (this.anomalies && this.anomalies[this.selectedMachine]) {
-      const machineAnomalies = this.anomalies[this.selectedMachine];
+    if (this.anomalies && this.selectedMachine in this.anomalies) {
+      const machineAnomalies = this.anomalies[this.selectedMachine] as MachineAnomalyResult;
       
-      if ('anomalies' in machineAnomalies) {
+      if (machineAnomalies && 'anomalies' in machineAnomalies && machineAnomalies.anomalies) {
         this.anomalyCount = machineAnomalies.anomalies.length;
         
-        // Calculate severity levels based on threshold values
         machineAnomalies.anomalies.forEach(anomaly => {
-          const value = anomaly.value || 0;
-          const threshold = anomaly.threshold || this.anomalyThreshold;
+          const score = anomaly.score || 0;
           
-          if (value > threshold * 2) {
+          
+          if (Math.abs(score) > this.anomalyThreshold * 2) {
             this.anomalySeverityLevels['critical']++;
-          } else if (value > threshold * 1.5) {
+          } else if (Math.abs(score) > this.anomalyThreshold * 1.5) {
             this.anomalySeverityLevels['high']++;
-          } else if (value > threshold * 1.25) {
+          } else if (Math.abs(score) > this.anomalyThreshold * 1.25) {
             this.anomalySeverityLevels['medium']++;
           } else {
             this.anomalySeverityLevels['low']++;
           }
         });
-      } else if (machineAnomalies.period) {
-        // Handle case when we only have period information
-        this.anomalyCount = 0;
       }
     }
   }
@@ -217,34 +210,26 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     // Process anomaly trends over time
     const anomalyTrendMap = new Map<string, number>();
     
-    if (this.anomalies && this.anomalies[this.selectedMachine]) {
-      const machineAnomalies = this.anomalies[this.selectedMachine];
+    if (this.anomalies && this.selectedMachine in this.anomalies) {
+      const machineAnomalies = this.anomalies[this.selectedMachine] as MachineAnomalyResult;
       
-      if ('anomalies' in machineAnomalies && machineAnomalies.anomalies) {
+      if (machineAnomalies && 'anomalies' in machineAnomalies && machineAnomalies.anomalies) {
         machineAnomalies.anomalies.forEach(anomaly => {
-          if (anomaly.timestamp) {
-            const date = new Date(anomaly.timestamp).toISOString().split('T')[0];
+          if (anomaly.Timestamp) {
+            const date = new Date(anomaly.Timestamp).toISOString().split('T')[0];
             anomalyTrendMap.set(date, (anomalyTrendMap.get(date) || 0) + 1);
           }
         });
-        
-        // Fill in dates with no anomalies
-        const startDate = new Date(this.startDate);
-        const endDate = new Date(this.endDate);
-        
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateString = d.toISOString().split('T')[0];
-          if (!anomalyTrendMap.has(dateString)) {
-            anomalyTrendMap.set(dateString, 0);
-          }
-        }
       }
-      
-      // Check if we have by_day stats
-      if ('stats' in machineAnomalies && machineAnomalies.stats?.by_day) {
-        Object.entries(machineAnomalies.stats.by_day).forEach(([date, count]) => {
-          anomalyTrendMap.set(date, Number(count));
-        });
+    }
+    
+    const startDate = new Date(this.startDate);
+    const endDate = new Date(this.endDate);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateString = d.toISOString().split('T')[0];
+      if (!anomalyTrendMap.has(dateString)) {
+        anomalyTrendMap.set(dateString, 0);
       }
     }
     
@@ -332,7 +317,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     
     // Process data for the chart
     const labels = this.machineData.map(item => {
-      const timestamp = item.Timestamp || item['timestamp'];
+      const timestamp = item.Timestamp || '';
       return timestamp ? new Date(timestamp).toLocaleString() : '';
     });
     
@@ -345,7 +330,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       
       // Extract data points for this metric
       const data = this.machineData.map(item => {
-        const value = item[metric as keyof MachineData];
+        const value = item[metric];
         return typeof value === 'number' ? value : null;
       });
       
@@ -454,7 +439,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     const latestData = this.machineData[this.machineData.length - 1];
     
     const data = this.availableMetrics.map(metric => {
-      const value = latestData[metric as keyof MachineData];
+      const value = latestData[metric];
       return typeof value === 'number' ? value : null;
     });
     
@@ -493,7 +478,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
           },
           tooltip: {
             callbacks: {
-              label: (context) => {
+              label: (context: any) => {
                 const value = context.parsed.y;
                 return value !== null ? `Value: ${value.toFixed(2)}` : 'No data';
               }
@@ -515,7 +500,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
     const trendData = this.anomalyTrends.map(item => item.count);
     const dates = this.anomalyTrends.map(item => item.date);
 
-    const movingAverages = this.calculateMovingAverage(trendData, 90);
+    const movingAverages = this.calculateMovingAverage(trendData, 7); // Changed to 7-day moving average for clarity
 
     const severityData = [
       this.anomalySeverityLevels['low'] || 0,
@@ -603,7 +588,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
           },
           tooltip: {
             callbacks: {
-              title: (tooltipItems) => {
+              title: (tooltipItems: any) => {
                 const date = new Date(tooltipItems[0].label);
                 return date.toLocaleDateString('en-US', { 
                   weekday: 'long', 
@@ -612,7 +597,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
                   day: 'numeric' 
                 });
               },
-              label: (context) => {
+              label: (context: any) => {
                 if (context.datasetIndex === 0) {
                   return `Anomalies: ${context.parsed.y}`;
                 } else {
@@ -640,7 +625,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
             }
           }
         }
-      }
+      } as any
     });
 
     this.charts.push(chart);
@@ -692,7 +677,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
             },
             tooltip: {
               callbacks: {
-                label: (context) => {
+                label: (context: any) => {
                   const value = context.parsed;
                   const total = severityData.reduce((a, b) => a + b, 0);
                   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
@@ -716,7 +701,7 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       const date = item.date;
       const count = item.count;
       
- 
+      // Simple distribution for demonstration
       const critical = Math.floor(count * 0.1);
       const high = Math.floor(count * 0.2);
       const medium = Math.floor(count * 0.3);
