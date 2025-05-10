@@ -1,17 +1,20 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { 
   MachineData, 
   MachineStatus, 
+  MachineStatusResponse,
   MachineStop, 
+  MachineStopResponse,
   AlertRequest, 
   ApiResponse, 
   MonitoringRequest,
   AnomalyDetectionResult,
   HistoricalAnomalyRequest,
   HistoricalAnomalyResult,
-  MachineAnalysisRequest
+  MachineAnalysisRequest,
+  MachineAnalysisResult
 } from '../models/machine.model';
 
 @Injectable({
@@ -22,16 +25,44 @@ export class MachineService {
 
   constructor(private http: HttpClient) { }
 
-  getMachineData(): Observable<MachineData[]> {
-    return this.http.get<MachineData[]>(`${this.apiUrl}/machine-data`);
+  getMachineData(hours?: number): Observable<MachineData[]> {
+    const params: any = {};
+    if (hours !== undefined) {
+      params.hours = hours.toString();
+    }
+    
+    return this.http.get<MachineData[]>(`${this.apiUrl}/machine-data`, { params });
   }
 
   getMachineStatus(): Observable<MachineStatus[]> {
-    return this.http.get<MachineStatus[]>(`${this.apiUrl}/machine-status`);
+    return this.http.get<MachineStatusResponse>(`${this.apiUrl}/machine-status`)
+      .pipe(
+        map(response => {
+          const statuses: MachineStatus[] = [];
+          for (const [machine_name, status] of Object.entries(response.machines)) {
+            statuses.push({
+              machine_name,
+              status,
+              last_updated: response.timestamp
+            });
+          }
+          return statuses;
+        })
+      );
   }
 
   getMachineStops(): Observable<MachineStop[]> {
-    return this.http.get<MachineStop[]>(`${this.apiUrl}/machine-stops`);
+    return this.http.get<MachineStopResponse>(`${this.apiUrl}/machine-stops`)
+      .pipe(
+        map(response => {
+          return Object.values(response).map(stopData => ({
+            machine_name: stopData.machine,
+            start_time: stopData.start_time,
+            end_time: stopData.end_time,
+            duration_hours: stopData.duration_hours
+          }));
+        })
+      );
   }
 
   sendAlert(alertData: AlertRequest): Observable<ApiResponse<null>> {
@@ -42,7 +73,6 @@ export class MachineService {
     const data: MonitoringRequest = { frequence_minutes: frequenceMinutes };
     return this.http.post<ApiResponse<null>>(`${this.apiUrl}/start-monitoring`, data);
   }
-
 
   detectAnomalies(hours: number = 24): Observable<AnomalyDetectionResult> {
     return this.http.get<AnomalyDetectionResult>(`${this.apiUrl}/detect-anomalies`, {
@@ -62,7 +92,7 @@ export class MachineService {
     });
   }
 
-  analyzeMachine(request: MachineAnalysisRequest): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/analyze-machine`, request);
+  analyzeMachine(request: MachineAnalysisRequest): Observable<MachineAnalysisResult> {
+    return this.http.post<MachineAnalysisResult>(`${this.apiUrl}/analyze-machine`, request);
   }
 }
