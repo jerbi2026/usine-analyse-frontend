@@ -59,6 +59,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(private machineService: MachineService) {}
 
   ngOnInit(): void {
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/auth/login';
+      return;
+    }
     this.availableMetrics.forEach(metric => {
       this.chartColors[metric] = this.getUniqueColor(metric);
     });

@@ -53,7 +53,7 @@ export class LoginComponent implements OnInit {
         //if (result.user.displayName) {
          // localStorage.setItem('displayName', result.user.displayName);
         //}
-        this.router.navigate(['/dashboard']);
+        this.router.navigate(['/admin/dashboard']);
       }
     } catch (error: any) {
       console.error('Login error:', error);

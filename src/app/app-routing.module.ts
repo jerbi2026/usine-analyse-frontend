@@ -7,14 +7,16 @@ import { DashboardComponent } from './components/admin/dashboard/dashboard.compo
 import { MachineStatusComponent } from './components/admin/machine-status/machine-status.component';
 import { MachineAnalysisComponent } from './components/admin/machine-analysis/machine-analysis.component';
 import { LayoutComponent } from './components/shared/layout/layout.component';
+import { AuthGuard } from './guards/auth.guard';
 
 const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },
   { path: 'auth/signup', component: SignupComponent },
   { path: 'auth/forgot-password', component: ForgotPasswordComponent },
   { 
-    path: '', 
+    path: 'admin', 
     component: LayoutComponent,
+    canActivate: [AuthGuard], 
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'machines', component: MachineStatusComponent },
@@ -22,6 +24,7 @@ const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },
+   { path: '', redirectTo: 'auth/login', pathMatch: 'full' },
   { path: '**', redirectTo: 'auth/login', pathMatch: 'full' }
 ];
 

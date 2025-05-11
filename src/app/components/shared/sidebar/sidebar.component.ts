@@ -16,9 +16,9 @@ interface MenuItem {
 })
 export class SidebarComponent implements OnInit {
   menuItems: MenuItem[] = [
-    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard', active: false },
-    { label: 'Machines', icon: 'settings', route: '/machines', active: false },
-    { label: 'Analyses', icon: 'analytics', route: '/analyses', active: false }
+    { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', active: false },
+    { label: 'Machines', icon: 'settings', route: '/admin/machines', active: false },
+    { label: 'Analyses', icon: 'analytics', route: '/admin/analyses', active: false }
   ];
 
   collapsed: boolean = false;

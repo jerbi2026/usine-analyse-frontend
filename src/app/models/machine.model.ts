@@ -85,7 +85,6 @@ export interface HistoricalAnomalyRequest {
   machines?: string[];
 }
 
-// Réutiliser la même structure pour les résultats historiques
 export type HistoricalAnomalyResult = AnomalyDetectionResult;
 
 export interface MachineAnalysisRequest {
