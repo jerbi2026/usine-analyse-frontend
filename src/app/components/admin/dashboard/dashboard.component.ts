@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild, ElementRef, OnDestroy, HostListener } from '@angular/core';
-import { MachineService } from '../services/machine.service';
-import { MachineData } from '../models/machine.model';
+import { MachineService } from '../../../services/machine.service';
+import { MachineData } from '../../../models/machine.model';
 import { Chart, registerables, ChartOptions } from 'chart.js';
 import { catchError, finalize } from 'rxjs/operators';
 import { of, Subscription } from 'rxjs';

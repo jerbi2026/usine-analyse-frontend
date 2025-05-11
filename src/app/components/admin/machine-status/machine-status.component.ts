@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
-import { MachineService } from '../services/machine.service';
+import { MachineService } from '../../../services/machine.service';
 import { forkJoin } from 'rxjs';
 import { 
   MachineStatus, 
   MachineStop,
   MonitoringStatus
-} from '../models/machine.model';
+} from '../../../models/machine.model';
 
 @Component({
   selector: 'app-machine-status',

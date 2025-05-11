@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { Router, NavigationEnd, Event } from '@angular/router';
+import { filter } from 'rxjs/operators';
 
 interface MenuItem {
   label: string;
@@ -13,7 +14,7 @@ interface MenuItem {
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.scss']
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit {
   menuItems: MenuItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard', active: false },
     { label: 'Machines', icon: 'settings', route: '/machines', active: false },
@@ -22,8 +23,17 @@ export class SidebarComponent {
 
   collapsed: boolean = false;
 
-  constructor(private router: Router) {
-    this.setActiveMenuItem();
+  constructor(private router: Router) {}
+
+  ngOnInit(): void {
+    this.setActiveMenuItem(this.router.url);
+    
+    // Subscribe to router events to update active state on navigation
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd)
+    ).subscribe((event) => {
+      this.setActiveMenuItem(event.urlAfterRedirects);
+    });
   }
 
   toggleSidebar(): void {
@@ -31,12 +41,15 @@ export class SidebarComponent {
   }
 
   navigateTo(route: string): void {
+    this.menuItems.forEach(item => {
+      item.active = item.route === route;
+    });
+    
+    // Then navigate
     this.router.navigate([route]);
-    this.setActiveMenuItem();
   }
 
-  private setActiveMenuItem(): void {
-    const currentRoute = this.router.url;
+  private setActiveMenuItem(currentRoute: string): void {
     this.menuItems.forEach(item => {
       item.active = currentRoute === item.route;
     });

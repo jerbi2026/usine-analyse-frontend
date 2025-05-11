@@ -12,8 +12,8 @@ import {
   HistoricalAnomalyResult,
   MachineAnomalyResult,
   AnomalySummary
-} from '../models/machine.model';
-import { MachineService } from '../services/machine.service';
+} from '../../../models/machine.model';
+import { MachineService } from '../../../services/machine.service';
 import { saveAs } from 'file-saver';
 
 Chart.register(...registerables, zoomPlugin);

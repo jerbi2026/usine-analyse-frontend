@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from 'src/app/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -75,15 +75,5 @@ export class LoginComponent implements OnInit {
     }
   }
 
-  async signInWithGoogle(): Promise<void> {
-    try {
-      // Implementation for Google sign-in would go here
-      // You'd need to add this functionality to your AuthService
-      // this.authService.signInWithGoogle();
-      this.router.navigate(['/dashboard']);
-    } catch (error) {
-      console.error('Google sign-in error:', error);
-      this.errorMessage = 'Google sign-in failed. Please try again.';
-    }
-  }
+  
 }

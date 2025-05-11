@@ -1,12 +1,12 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { LoginComponent } from './login/login.component';
-import { SignupComponent } from './signup/signup.component';
-import { ForgotPasswordComponent } from './forgot-password/forgot-password.component';
-import { DashboardComponent } from './dashboard/dashboard.component';
-import { MachineStatusComponent } from './machine-status/machine-status.component';
-import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
-import { LayoutComponent } from './layout/layout.component';
+import { LoginComponent } from './components/auth/login/login.component';
+import { SignupComponent } from './components/auth/signup/signup.component';
+import { ForgotPasswordComponent } from './components/auth/forgot-password/forgot-password.component';
+import { DashboardComponent } from './components/admin/dashboard/dashboard.component';
+import { MachineStatusComponent } from './components/admin/machine-status/machine-status.component';
+import { MachineAnalysisComponent } from './components/admin/machine-analysis/machine-analysis.component';
+import { LayoutComponent } from './components/shared/layout/layout.component';
 
 const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },

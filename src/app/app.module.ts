@@ -7,17 +7,17 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { AngularFireModule } from '@angular/fire/compat';
 import { AngularFireAuthModule } from '@angular/fire/compat/auth';
 import { environment } from './environment/environment';
-import { LoginComponent } from './login/login.component';
-import { SignupComponent } from './signup/signup.component';
-import { ForgotPasswordComponent } from './forgot-password/forgot-password.component';
-import { DashboardComponent } from './dashboard/dashboard.component';
+import { LoginComponent } from './components/auth/login/login.component';
+import { SignupComponent } from './components/auth/signup/signup.component';
+import { ForgotPasswordComponent } from './components/auth/forgot-password/forgot-password.component';
+import { DashboardComponent } from './components/admin/dashboard/dashboard.component';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
-import { MachineStatusComponent } from './machine-status/machine-status.component';
-import { MachineAnalysisComponent } from './machine-analysis/machine-analysis.component';
-import { NavbarComponent } from './navbar/navbar.component';
-import { SidebarComponent } from './sidebar/sidebar.component';
-import { LayoutComponent } from './layout/layout.component';
+import { MachineStatusComponent } from './components/admin/machine-status/machine-status.component';
+import { MachineAnalysisComponent } from './components/admin/machine-analysis/machine-analysis.component';
+import { NavbarComponent } from './components/shared/navbar/navbar.component';
+import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
+import { LayoutComponent } from './components/shared/layout/layout.component';
 
 @NgModule({
   declarations: [
@@ -39,10 +39,8 @@ import { LayoutComponent } from './layout/layout.component';
     FormsModule,
     ReactiveFormsModule,
     AngularFireModule.initializeApp(environment.firebase),
-    AngularFireAuthModule,
+    //AngularFireAuthModule,
     HttpClientModule,
-    
-
   ],
   providers: [],
   bootstrap: [AppComponent]
