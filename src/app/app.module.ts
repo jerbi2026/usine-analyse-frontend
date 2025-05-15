@@ -18,6 +18,7 @@ import { MachineAnalysisComponent } from './components/admin/machine-analysis/ma
 import { NavbarComponent } from './components/shared/navbar/navbar.component';
 import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 import { LayoutComponent } from './components/shared/layout/layout.component';
+import { NgxPaginationModule } from 'ngx-pagination';
 
 @NgModule({
   declarations: [
@@ -39,8 +40,8 @@ import { LayoutComponent } from './components/shared/layout/layout.component';
     FormsModule,
     ReactiveFormsModule,
     AngularFireModule.initializeApp(environment.firebase),
-    //AngularFireAuthModule,
     HttpClientModule,
+    NgxPaginationModule
   ],
   providers: [],
   bootstrap: [AppComponent]

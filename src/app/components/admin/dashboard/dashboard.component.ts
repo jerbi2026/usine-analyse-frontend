@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, OnDestroy, HostListener, AfterViewInit } from '@angular/core';
 import { MachineService } from '../../../services/machine.service';
 import { MachineData } from '../../../models/machine.model';
 import { Chart, registerables, ChartOptions } from 'chart.js';
@@ -12,7 +12,7 @@ Chart.register(...registerables, zoomPlugin);
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit, OnDestroy {
+export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   machineData: MachineData[] = [];
   charts: Chart[] = [];
   isLoading = false;
@@ -28,9 +28,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   dataSubscription: Subscription | null = null;
   chartColors: {[key: string]: string} = {};
   
-  // Nouvelles propriétés pour les graphiques supplémentaires
   selectedMetricForHeatmap: string = '';
   selectedMetricForDistribution: string = '';
+  
+  selectedMetricForWeekday: string = '';
+  selectedWeekday: number = 1; 
+  weekdayNames: string[] = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  weekdayData: any[] = [];
   
   // Nouvelles méthodes pour le résumé des données
   calculateMin(metric: string): number {
@@ -55,11 +59,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   @ViewChild('monthlyMedianCanvas') monthlyMedianCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('distributionCanvas') distributionCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('heatmapCanvas') heatmapCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('weekdayComparisonCanvas') weekdayComparisonCanvas!: ElementRef<HTMLCanvasElement>;
   
   constructor(private machineService: MachineService) {}
 
   ngOnInit(): void {
-
     const token = localStorage.getItem('token');
     if (!token) {
       window.location.href = '/auth/login';
@@ -71,14 +75,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     // Sélectionner quelques métriques par défaut pour commencer
     if (this.availableMetrics.length > 0) {
-      this.selectedMetrics = [];
+      this.selectedMetrics = [this.availableMetrics[0]]; // Sélectionner au moins une métrique par défaut
       this.selectedMetricForHeatmap = this.availableMetrics[0];
       this.selectedMetricForDistribution = this.availableMetrics[0];
+      this.selectedMetricForWeekday = this.availableMetrics[0];
     }
     
     this.loadData();
     
     this.setupAutoRefresh();
+  }
+  
+  ngAfterViewInit(): void {
+    // Assurer que les graphiques sont rendus après que la vue soit initialisée
+    setTimeout(() => {
+      if (this.machineData.length > 0) {
+        this.renderCharts();
+      }
+    }, 300);
   }
   
   ngOnDestroy(): void {
@@ -111,11 +125,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.error = 'Erreur lors du chargement des données: ' + err.message;
           return of([]);
         }),
-        finalize(() => this.isLoading = false)
+        finalize(() => {
+          this.isLoading = false;
+          // Assurer que les graphiques sont rendus après le chargement des données
+          setTimeout(() => this.renderCharts(), 100);
+        })
       )
       .subscribe(data => {
         this.machineData = this.filterDataByDateRange(data);
-        this.renderCharts();
+        // Préparer les données pour le graphique par jour de la semaine
+        this.prepareWeekdayData();
       });
   }
 
@@ -159,6 +178,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.renderMonthlyMedianChart();
     this.renderDistributionChart();
     this.renderHeatmapChart();
+    this.renderWeekdayComparisonChart();
   }
 
   renderTimeseriesChart(): void {
@@ -599,6 +619,138 @@ export class DashboardComponent implements OnInit, OnDestroy {
     chart.update();
     
     this.charts.push(chart);
+  }
+  
+  renderWeekdayComparisonChart(): void {
+    if (!this.weekdayComparisonCanvas || !this.selectedMetricForWeekday) return;
+    
+    const ctx = this.weekdayComparisonCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+    
+    // Utiliser les données préparées
+    const weekLabels = this.weekdayData.map(item => item.weekLabel);
+    const values = this.weekdayData.map(item => item.value);
+    
+    const color = this.chartColors[this.selectedMetricForWeekday] || this.getUniqueColor(this.selectedMetricForWeekday);
+    
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: weekLabels,
+        datasets: [{
+          label: `${this.selectedMetricForWeekday} (${this.weekdayNames[this.selectedWeekday]})`,
+          data: values,
+          backgroundColor: this.hexToRgba(color, 0.7),
+          borderColor: color,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: 'Semaine'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'Valeur moyenne'
+            },
+            beginAtZero: false
+          }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: `Comparaison de ${this.selectedMetricForWeekday} par ${this.weekdayNames[this.selectedWeekday]}`
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                return `Valeur moyenne: ${value.toFixed(2)}`;
+              }
+            }
+          },
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+    
+    this.charts.push(chart);
+  }
+  
+  // Préparer les données pour la comparaison par jour de la semaine
+prepareWeekdayData(): void {
+  if (!this.machineData.length || !this.selectedMetricForWeekday) {
+    this.weekdayData = [];
+    return;
+  }
+  
+  // Structure pour stocker les valeurs par semaine pour le jour sélectionné
+  const weekdayValues: { [weekkey: string]: { sum: number, count: number } } = {};
+  
+  // Parcourir les données et regrouper par semaine
+  this.machineData.forEach(item => {
+    const date = new Date(item.Timestamp);
+    
+    // Vérifier si le jour de la semaine correspond à notre sélection
+    if (date.getDay() === this.selectedWeekday) {
+      // Calculer le numéro de la semaine et l'année
+      const weekNumber = this.getWeekNumber(date);
+      const weekYear = date.getFullYear();
+      const weekKey = `${weekYear}-W${weekNumber.toString().padStart(2, '0')}`;
+      
+      // Obtenir la valeur de la métrique
+      const value = Number(item[this.selectedMetricForWeekday as keyof MachineData]);
+      
+      // Sauter les valeurs non numériques ou NaN
+      if (isNaN(value)) return;
+      
+      // Initialiser ou mettre à jour les données pour cette semaine
+      if (!weekdayValues[weekKey]) {
+        weekdayValues[weekKey] = { sum: 0, count: 0 };
+      }
+      
+      weekdayValues[weekKey].sum += value;
+      weekdayValues[weekKey].count += 1;
+    }
+  });
+  
+  // Convertir en structure de données pour le graphique
+  // et calculer les moyennes
+  this.weekdayData = Object.keys(weekdayValues)
+    .sort() // Trier par semaine chronologiquement
+    .map(weekKey => {
+      const avg = weekdayValues[weekKey].count > 0 ? 
+        weekdayValues[weekKey].sum / weekdayValues[weekKey].count : 0;
+      
+      // Extraire l'année et le numéro de semaine pour un meilleur affichage
+      const [year, week] = weekKey.split('-W');
+      
+      return {
+        weekKey: weekKey,
+        weekLabel: `${year} S${week}`, // Format plus lisible
+        value: avg
+      };
+    });
+}
+
+// Fonction utilitaire pour obtenir le numéro de semaine ISO d'une date
+getWeekNumber(date: Date): number {
+  const d = new Date(date);
+  // Fixer à jeudi de la semaine courante pour calculer le numéro de semaine ISO
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  // Début de l'année
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  // Calculer le nombre de semaines
+  return Math.floor(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7) + 1;
 }
   
   // Fonction pour calculer les médianes mensuelles
@@ -769,7 +921,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const chartName = ['timeseries', 'comparison', 'monthly-median', 'distribution', 'heatmap'][index] || `chart-${index}`;
       const url = chart.toBase64Image();
       
-      // Créer un lien temporaire pour le téléchargement
       const link = document.createElement('a');
       link.download = `${chartName}-${new Date().toISOString()}.png`;
       link.href = url;
@@ -789,10 +940,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.fullscreenElement = element;
     this.isFullscreen = true;
     
-    // Ajouter la classe fullscreen à l'élément approprié
     document.querySelector(`.${element}`)?.classList.add('fullscreen');
     
-    // Redessiner le graphique après un court délai pour s'adapter à la nouvelle taille
     setTimeout(() => {
       this.renderCharts();
     }, 100);
@@ -816,7 +965,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   @HostListener('window:resize', ['$event'])
   onResize(event: Event): void {
-    // Redessiner les graphiques lors du redimensionnement de la fenêtre
     this.renderCharts();
   }
 }

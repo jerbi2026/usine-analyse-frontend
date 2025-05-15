@@ -136,7 +136,7 @@
     <div class="chart-header">
       <h3>Time Series Analysis</h3>
       <div class="chart-controls">
-        <button class="reset-zoom-button" (click)="charts[0]?.resetZoom()">Reset Zoom</button>
+        <button class="reset-zoom-button" (click)="charts[0].resetZoom()">Reset Zoom</button>
         <button class="fullscreen-button" (click)="toggleFullscreen('timeseries-chart')">
           <i class="icon-fullscreen"></i>
         </button>
@@ -155,3 +155,4 @@
     <button (click)="refreshData()">Try Again</button>
   </div>
 </div>
+

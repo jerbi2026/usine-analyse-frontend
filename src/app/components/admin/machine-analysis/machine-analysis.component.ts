@@ -171,7 +171,6 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
       )
       .subscribe(anomalies => {
         this.anomalies = anomalies;
-        console.log('Anomalies:', this.anomalies);
         this.calculateAnomalyMetrics();
         this.processAnomalyTrends();
         this.renderCharts();
