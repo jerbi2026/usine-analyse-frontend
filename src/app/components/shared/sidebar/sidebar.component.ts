@@ -18,7 +18,8 @@ export class SidebarComponent implements OnInit {
   menuItems: MenuItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', active: false },
     { label: 'Machines', icon: 'settings', route: '/admin/machines', active: false },
-    { label: 'Analyses', icon: 'analytics', route: '/admin/analyses', active: false }
+    { label: 'Analyses', icon: 'analytics', route: '/admin/analyses', active: false },
+    { label: 'Predictions', icon: 'online_prediction', route: '/admin/predictions', active: false }
   ];
 
   collapsed: boolean = false;

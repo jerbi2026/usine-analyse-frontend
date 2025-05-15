@@ -18,7 +18,7 @@ export class LoginComponent implements OnInit {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     this.initForm();
@@ -46,15 +46,8 @@ export class LoginComponent implements OnInit {
     this.errorMessage = '';
 
     try {
-      const result = await this.authService.signIn(email, password);
-      if (true) {
-        //const token = await result.user.getIdToken();
-        //localStorage.setItem('token', token);
-        //if (result.user.displayName) {
-         // localStorage.setItem('displayName', result.user.displayName);
-        //}
-        this.router.navigate(['/admin/dashboard']);
-      }
+      await this.authService.signIn(email, password); // Updated AuthService handles localStorage
+      this.router.navigate(['/admin/dashboard']);
     } catch (error: any) {
       console.error('Login error:', error);
       switch (error.code) {
@@ -74,6 +67,4 @@ export class LoginComponent implements OnInit {
       this.isSubmitting = false;
     }
   }
-
-  
 }

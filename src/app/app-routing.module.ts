@@ -8,6 +8,7 @@ import { MachineStatusComponent } from './components/admin/machine-status/machin
 import { MachineAnalysisComponent } from './components/admin/machine-analysis/machine-analysis.component';
 import { LayoutComponent } from './components/shared/layout/layout.component';
 import { AuthGuard } from './guards/auth.guard';
+import { PredictionComponent } from './components/admin/prediction/prediction.component';
 
 const routes: Routes = [
   { path: 'auth/login', component: LoginComponent },
@@ -21,6 +22,7 @@ const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'machines', component: MachineStatusComponent },
       { path: 'analyses', component: MachineAnalysisComponent },
+      { path: 'predictions', component: PredictionComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

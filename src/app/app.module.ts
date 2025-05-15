@@ -19,6 +19,7 @@ import { NavbarComponent } from './components/shared/navbar/navbar.component';
 import { SidebarComponent } from './components/shared/sidebar/sidebar.component';
 import { LayoutComponent } from './components/shared/layout/layout.component';
 import { NgxPaginationModule } from 'ngx-pagination';
+import { PredictionComponent } from './components/admin/prediction/prediction.component';
 
 @NgModule({
   declarations: [
@@ -32,6 +33,7 @@ import { NgxPaginationModule } from 'ngx-pagination';
     NavbarComponent,
     SidebarComponent,
     LayoutComponent,
+    PredictionComponent
   ],
   imports: [
     BrowserModule,

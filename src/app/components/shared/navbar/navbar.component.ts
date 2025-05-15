@@ -8,11 +8,15 @@ import { Router } from '@angular/router';
   styleUrls: ['./navbar.component.scss']
 })
 export class NavbarComponent implements OnInit{
-  userName: string = 'John Doe';
+  userName: string = '';
   
   constructor(private router: Router, private AuthService:AuthService) {}
   ngOnInit(): void {
-     this.userName = localStorage.getItem('displayName') || 'John Doe';
+    const user = localStorage.getItem('user');
+    if(user) {
+      this.userName = JSON.parse(user).email;
+    }
+    
   }
 
   logout(): void {

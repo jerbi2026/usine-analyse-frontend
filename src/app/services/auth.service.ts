@@ -8,35 +8,34 @@ import firebase from 'firebase/compat/app';
   providedIn: 'root'
 })
 export class AuthService {
-  user$: any;
+  user$ = this.afAuth.authState;
 
-  constructor(private afAuth: AngularFireAuth, private router: Router) {
-    this.user$ = this.afAuth.authState;
-  }
+  constructor(private afAuth: AngularFireAuth, private router: Router) {}
 
-  signUp(email: string, password: string) {
+  async signUp(email: string, password: string): Promise<firebase.auth.UserCredential> {
     return this.afAuth.createUserWithEmailAndPassword(email, password);
   }
 
-  signIn(email: string, password: string) {
-    return this.afAuth.signInWithEmailAndPassword(email, password)
-      .then((result) => {
-        result.user?.getIdToken().then(token => {
-          localStorage.setItem('token', token);
-          if (result.user?.displayName) {
-            localStorage.setItem('displayName', result.user.displayName);
-          }
-        });
-        this.router.navigate(['dashboard']);
-      });
+  async signIn(email: string, password: string): Promise<firebase.auth.UserCredential> {
+    const result = await this.afAuth.signInWithEmailAndPassword(email, password);
+    if (result.user) {
+      const userData = {
+        uid: result.user.uid,
+        email: result.user.email || null,
+        displayName: result.user.displayName || null,
+      };
+      const token = await result.user.getIdToken();
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', token);
+    }
+    return result; // Return the result for further handling if needed
   }
 
-  signOut() {
+  async signOut(): Promise<void> {
+    localStorage.removeItem('user');
     localStorage.removeItem('token');
-    localStorage.removeItem('displayName');
-    return this.afAuth.signOut().then(() => {
-      this.router.navigate(['login']);
-    });
+    await this.afAuth.signOut();
+    this.router.navigate(['login']);
   }
 
   isLoggedIn(): boolean {
@@ -45,28 +44,26 @@ export class AuthService {
 
   async getCurrentUserToken(): Promise<string | null> {
     const user = await this.afAuth.currentUser;
-    if (user) {
-      const idToken = await user.getIdToken();
-      return idToken;
-    }
-    return null;
+    return user ? user.getIdToken() : null;
   }
 
   getUser() {
     return this.afAuth.authState;
   }
 
-  signInWithGoogle() {
+  async signInWithGoogle(): Promise<firebase.auth.UserCredential> {
     const provider = new GoogleAuthProvider();
-    return this.afAuth.signInWithPopup(provider)
-      .then((result) => {
-        result.user?.getIdToken().then(token => {
-          localStorage.setItem('token', token);
-          if (result.user?.displayName) {
-            localStorage.setItem('displayName', result.user.displayName);
-          }
-        });
-        this.router.navigate(['dashboard']);
-      });
+    const result = await this.afAuth.signInWithPopup(provider);
+    if (result.user) {
+      const userData = {
+        uid: result.user.uid,
+        email: result.user.email || null,
+        displayName: result.user.displayName || null,
+      };
+      const token = await result.user.getIdToken();
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', token);
+    }
+    return result;
   }
 }
