@@ -158,9 +158,9 @@
             <select [(ngModel)]="selectedMetricForWeekday" (change)="onMetricSelect('weekday', selectedMetricForWeekday)">
               <option *ngFor="let metric of availableMetrics" [value]="metric">{{ metric }}</option>
             </select>
-            <select [(ngModel)]="selectedWeekday" (change)="prepareWeekdayData()">
-              <option *ngFor="let day of weekdayNames; let i = index" [value]="i">{{ day }}</option>
-            </select>
+           <select [(ngModel)]="selectedWeekday" (ngModelChange)="onWeekdayChange($event)">
+                <option *ngFor="let day of weekdayNames; let i = index" [value]="i">{{ day }}</option>
+          </select>
           </div>
         </div>
         <div class="chart-wrapper weekday-comparison">

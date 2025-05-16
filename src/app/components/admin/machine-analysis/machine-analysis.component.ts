@@ -56,9 +56,8 @@ export class MachineAnalysisComponent implements OnInit, OnDestroy {
   
   // Analysis metrics
   availableMetrics: string[] = [
-    'G19', 'G26', 'MISFAT_3_D02_01_M43', 'MISFAT_3_D18f', 
-    'MISFAT_3_G10f', 'MISFAT_3_G33_', 'MISFAT_3_G39f', 
-    'MISFAT_3_H46f', 'MISFAT_3_H53', 'MISFAT_3_N11'
+     'G19', 'G26', 'MISFAT_3_Compresseur_3', 'MISFAT_3_G39f', 
+    'MISFAT_3_D18f', 'MISFAT_3_G10f', 'MISFAT_3_TGBT_N3f'
   ];
   
   // Performance metrics

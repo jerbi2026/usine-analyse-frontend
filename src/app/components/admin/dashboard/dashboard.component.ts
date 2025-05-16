@@ -620,140 +620,135 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     
     this.charts.push(chart);
   }
+  onWeekdayChange(value: string | number): void {
+  this.selectedWeekday = Number(value); 
+  this.prepareWeekdayData();
+}
   
-  renderWeekdayComparisonChart(): void {
-    if (!this.weekdayComparisonCanvas || !this.selectedMetricForWeekday) return;
-    
-    const ctx = this.weekdayComparisonCanvas.nativeElement.getContext('2d');
-    if (!ctx) return;
-    
-    // Utiliser les données préparées
-    const weekLabels = this.weekdayData.map(item => item.weekLabel);
-    const values = this.weekdayData.map(item => item.value);
-    
-    const color = this.chartColors[this.selectedMetricForWeekday] || this.getUniqueColor(this.selectedMetricForWeekday);
-    
-    const chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: weekLabels,
-        datasets: [{
-          label: `${this.selectedMetricForWeekday} (${this.weekdayNames[this.selectedWeekday]})`,
-          data: values,
-          backgroundColor: this.hexToRgba(color, 0.7),
-          borderColor: color,
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: 'Semaine'
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'Valeur moyenne'
-            },
-            beginAtZero: false
-          }
-        },
-        plugins: {
-          title: {
-            display: true,
-            text: `Comparaison de ${this.selectedMetricForWeekday} par ${this.weekdayNames[this.selectedWeekday]}`
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const value = context.parsed.y;
-                return `Valeur moyenne: ${value.toFixed(2)}`;
-              }
-            }
-          },
-          legend: {
-            display: false
-          }
-        }
-      }
-    });
-    
-    this.charts.push(chart);
-  }
-  
-  // Préparer les données pour la comparaison par jour de la semaine
-prepareWeekdayData(): void {
+ prepareWeekdayData(): void {
   if (!this.machineData.length || !this.selectedMetricForWeekday) {
     this.weekdayData = [];
     return;
   }
   
-  // Structure pour stocker les valeurs par semaine pour le jour sélectionné
-  const weekdayValues: { [weekkey: string]: { sum: number, count: number } } = {};
+  const weeklyData: { [weekKey: string]: number } = {};
   
-  // Parcourir les données et regrouper par semaine
-  this.machineData.forEach(item => {
+  const sortedData = [...this.machineData].sort((a, b) => 
+    new Date(b.Timestamp).getTime() - new Date(a.Timestamp).getTime()
+  );
+  
+  sortedData.forEach(item => {
     const date = new Date(item.Timestamp);
     
-    // Vérifier si le jour de la semaine correspond à notre sélection
     if (date.getDay() === this.selectedWeekday) {
-      // Calculer le numéro de la semaine et l'année
       const weekNumber = this.getWeekNumber(date);
       const weekYear = date.getFullYear();
       const weekKey = `${weekYear}-W${weekNumber.toString().padStart(2, '0')}`;
       
-      // Obtenir la valeur de la métrique
       const value = Number(item[this.selectedMetricForWeekday as keyof MachineData]);
       
-      // Sauter les valeurs non numériques ou NaN
       if (isNaN(value)) return;
       
-      // Initialiser ou mettre à jour les données pour cette semaine
-      if (!weekdayValues[weekKey]) {
-        weekdayValues[weekKey] = { sum: 0, count: 0 };
+      if (weeklyData[weekKey] === undefined) {
+        weeklyData[weekKey] = value;
       }
-      
-      weekdayValues[weekKey].sum += value;
-      weekdayValues[weekKey].count += 1;
     }
   });
   
-  // Convertir en structure de données pour le graphique
-  // et calculer les moyennes
-  this.weekdayData = Object.keys(weekdayValues)
-    .sort() // Trier par semaine chronologiquement
+  // Convert to chart-ready format and sort chronologically
+  this.weekdayData = Object.keys(weeklyData)
+    .sort() // Sort weeks chronologically
     .map(weekKey => {
-      const avg = weekdayValues[weekKey].count > 0 ? 
-        weekdayValues[weekKey].sum / weekdayValues[weekKey].count : 0;
-      
-      // Extraire l'année et le numéro de semaine pour un meilleur affichage
       const [year, week] = weekKey.split('-W');
       
       return {
         weekKey: weekKey,
-        weekLabel: `${year} S${week}`, // Format plus lisible
-        value: avg
+        weekLabel: `${year} S${week}`, 
+        value: weeklyData[weekKey]
       };
     });
+    
+  // After preparing data, render the charts
+  setTimeout(() => this.renderCharts(), 0);
 }
 
-// Fonction utilitaire pour obtenir le numéro de semaine ISO d'une date
+// Fonction pour le rendu du graphique comparatif par jour de semaine
+renderWeekdayComparisonChart(): void {
+  if (!this.weekdayComparisonCanvas || !this.selectedMetricForWeekday) return;
+  
+  const ctx = this.weekdayComparisonCanvas.nativeElement.getContext('2d');
+  if (!ctx) return;
+  
+  // Utiliser les données préparées
+  const weekLabels = this.weekdayData.map(item => item.weekLabel);
+  const values = this.weekdayData.map(item => item.value);
+  
+  const color = this.chartColors[this.selectedMetricForWeekday] || this.getUniqueColor(this.selectedMetricForWeekday);
+  
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weekLabels,
+      datasets: [{
+        label: `${this.selectedMetricForWeekday} (${this.weekdayNames[this.selectedWeekday]})`,
+        data: values,
+        backgroundColor: this.hexToRgba(color, 0.7),
+        borderColor: color,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Semaine'
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Valeur'
+          },
+          beginAtZero: false
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `Valeurs de ${this.selectedMetricForWeekday} chaque ${this.weekdayNames[this.selectedWeekday]}`
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const value = context.parsed.y;
+              return `Valeur: ${value.toFixed(2)}`;
+            }
+          }
+        },
+        legend: {
+          display: false
+        }
+      }
+    }
+  });
+  
+  this.charts.push(chart);
+}
+
 getWeekNumber(date: Date): number {
   const d = new Date(date);
-  // Fixer à jeudi de la semaine courante pour calculer le numéro de semaine ISO
   d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  // Début de l'année
   const yearStart = new Date(d.getFullYear(), 0, 1);
-  // Calculer le nombre de semaines
   return Math.floor(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7) + 1;
 }
   
-  // Fonction pour calculer les médianes mensuelles
   calculateMonthlyMedians(): { [month: string]: { [metric: string]: number } } {
     const monthlyGroups: { [month: string]: { [metric: string]: number[] } } = {};
     
@@ -837,7 +832,7 @@ getWeekNumber(date: Date): number {
 
   onDateRangeChange(range: string): void {
     this.selectedDateRange = range;
-    this.loadData(); // Recharger les données avec le nouveau filtre
+    this.loadData(); 
   }
 
   onMetricToggle(metric: string): void {
@@ -851,13 +846,16 @@ getWeekNumber(date: Date): number {
   }
   
   onMetricSelect(metricType: string, metric: string): void {
-    if (metricType === 'heatmap') {
-      this.selectedMetricForHeatmap = metric;
-    } else if (metricType === 'distribution') {
-      this.selectedMetricForDistribution = metric;
-    }
-    this.renderCharts();
+  if (metricType === 'heatmap') {
+    this.selectedMetricForHeatmap = metric;
+  } else if (metricType === 'distribution') {
+    this.selectedMetricForDistribution = metric;
+  } else if (metricType === 'weekday') {
+    this.selectedMetricForWeekday = metric;
+    this.prepareWeekdayData(); 
   }
+  this.renderCharts();
+}
 
   // Fonction pour générer des couleurs cohérentes basées sur le nom de la métrique
   getUniqueColor(text: string): string {
