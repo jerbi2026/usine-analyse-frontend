@@ -1,7 +1,7 @@
 <div class="login-container">
     <div class="login-card">
       <div class="login-header">
-        <img src="assets/logo.png" alt="logo">
+        <img src="assets/logo.png" alt="logo" class="logo">
         <h2>Welcome Back</h2>
         <p>Sign in to continue to your account</p>
       </div>
@@ -55,17 +55,15 @@
           <span *ngIf="!isSubmitting">Sign In</span>
         </button>
   
-         <!--<div class="separator">
+         <div class="separator">
           <span>or</span>
         </div>
   
-        <button type="button" class="btn btn-google" (click)="signInWithGoogle()">
-          <i class="fab fa-google"></i> Sign in with Google
-        </button>
+        
   
        <div class="signup-link">
           Don't have an account? <a [routerLink]="['/auth/signup']">Sign up</a>
-        </div>-->
+        </div>
       </form>
     </div>
   </div>
